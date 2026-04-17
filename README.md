@@ -100,110 +100,91 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 
 ## Class Diagram
 
-```
-┌──────────────────────────────────────┐
-│                User                  │
-├──────────────────────────────────────┤
-│ + id: int                            │
-│ + username: str                      │
-│ + email: str                         │
-│ + password_hash: str                 │
-│ + company: str                       │
-│ + created_at: datetime               │
-├──────────────────────────────────────┤
-│ + check_password(plain) → bool       │
-└───────────┬──────────────────────────┘
-            │ 1 owns 0..*
-            ▼
-┌──────────────────────────────────────┐
-│              Location                │
-├──────────────────────────────────────┤
-│ + id: int                            │
-│ + name: str                          │
-│ + user_id: int  «FK»                 │
-│ + latitude: float                    │
-│ + longitude: float                   │
-│ + location_type: str                 │
-│ + is_active: bool                    │
-└───────────┬──────────────────────────┘
-            │ 1 has 0..*
-            ▼
-┌──────────────────────────────────────┐
-│          WeatherThreshold            │
-├──────────────────────────────────────┤
-│ + id: int                            │
-│ + location_id: int  «FK»             │
-│ + condition: str                     │
-│ + operator: str                      │
-│ + value: float                       │
-│ + severity: str                      │
-│ + description: str                   │
-└──────────────────────────────────────┘
+```mermaid
+classDiagram
+    class User {
+        +int id
+        +str username
+        +str email
+        +str password_hash
+        +str company
+        +datetime created_at
+        +check_password(plain) bool
+    }
 
-┌──────────────────────────────────────┐
-│           SRFWeatherService          │
-├──────────────────────────────────────┤
-│ - _client_id: str                    │
-│ - _client_secret: str                │
-│ - _token: str | None                 │
-├──────────────────────────────────────┤
-│ + get_forecast(lat, lon, location)   │
-│     → WeatherForecast                │
-│ - _fetch_token() → str               │
-│ - _parse_response() → WeatherForecast│
-└──────────────────────────────────────┘
-            │ returns
-            ▼
-┌──────────────────────────────────────┐
-│           WeatherForecast            │
-├──────────────────────────────────────┤
-│ + temperature: float                 │
-│ + wind_speed: float                  │
-│ + precipitation: float               │
-│ + symbol_code: str                   │
-│ + location: str                      │
-│ + fetched_at: datetime               │
-├──────────────────────────────────────┤
-│ + __str__() → str                    │
-│ + __repr__() → str                   │
-└──────────────────────────────────────┘
+    class Location {
+        +int id
+        +str name
+        +int user_id
+        +float latitude
+        +float longitude
+        +str location_type
+        +bool is_active
+    }
 
-┌──────────────────────────────────────┐
-│            RiskAnalyzer              │
-├──────────────────────────────────────┤
-│ - _weather_service: SRFWeatherSvc    │
-├──────────────────────────────────────┤
-│ + analyze(location) → list[Alert]    │
-│ + analyze_all() → list[Alert]        │
-│ - _check_threshold(forecast,         │
-│     threshold) → Alert | None        │
-│ - _is_duplicate(alert) → bool        │
-└──────────────────────────────────────┘
-            │ creates
-            ▼
-┌──────────────────────────────────────┐
-│               Alert                  │
-├──────────────────────────────────────┤
-│ + id: int                            │
-│ + location_id: int  «FK»             │
-│ + threshold_id: int  «FK»            │
-│ + alert_type: str                    │
-│ + message: str                       │
-│ + severity: str                      │
-│ + triggered_at: datetime             │
-│ + is_read: bool                      │
-└──────────────────────────────────────┘
+    class WeatherThreshold {
+        +int id
+        +int location_id
+        +str condition
+        +str operator
+        +float value
+        +str severity
+        +str description
+    }
 
-┌──────────────────────────────────────┐
-│           AlertStatistics            │
-├──────────────────────────────────────┤
-│ - _alerts: list[Alert]               │
-├──────────────────────────────────────┤
-│ + total() → int                      │
-│ + by_type() → dict[str, int]         │
-│ + by_severity() → dict[str, int]     │
-│ + by_day() → dict[str, int]          │
-└──────────────────────────────────────┘
+    class SRFWeatherService {
+        -str _client_id
+        -str _client_secret
+        -str _token
+        +get_forecast(lat, lon, location) WeatherForecast
+        -_fetch_token() str
+        -_parse_response() WeatherForecast
+    }
+
+    class WeatherForecast {
+        +float temperature
+        +float wind_speed
+        +float precipitation
+        +str symbol_code
+        +str location
+        +datetime fetched_at
+        +__str__() str
+        +__repr__() str
+    }
+
+    class RiskAnalyzer {
+        -SRFWeatherService _weather_service
+        +analyze(location) list
+        +analyze_all() list
+        -_check_threshold(forecast, threshold) Alert
+        -_is_duplicate(alert) bool
+    }
+
+    class Alert {
+        +int id
+        +int location_id
+        +int threshold_id
+        +str alert_type
+        +str message
+        +str severity
+        +datetime triggered_at
+        +bool is_read
+    }
+
+    class AlertStatistics {
+        -list _alerts
+        +total() int
+        +by_type() dict
+        +by_severity() dict
+        +by_day() dict
+    }
+
+    User "1" --> "0..*" Location : owns
+    Location "1" --> "0..*" WeatherThreshold : has
+    SRFWeatherService --> WeatherForecast : returns
+    RiskAnalyzer --> Alert : creates
+    RiskAnalyzer --> SRFWeatherService : uses
+    AlertStatistics --> Alert : aggregates
 ```
 
 ---
