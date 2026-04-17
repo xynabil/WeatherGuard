@@ -120,7 +120,7 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 ├──────────────────────────────────────┤
 │ + id: int                            │
 │ + name: str                          │
-│ + user_id: int  «FK»                │
+│ + user_id: int  «FK»                 │
 │ + latitude: float                    │
 │ + longitude: float                   │
 │ + location_type: str                 │
@@ -132,7 +132,7 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 │          WeatherThreshold            │
 ├──────────────────────────────────────┤
 │ + id: int                            │
-│ + location_id: int  «FK»            │
+│ + location_id: int  «FK»             │
 │ + condition: str                     │
 │ + operator: str                      │
 │ + value: float                       │
@@ -185,8 +185,8 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 │               Alert                  │
 ├──────────────────────────────────────┤
 │ + id: int                            │
-│ + location_id: int  «FK»            │
-│ + threshold_id: int  «FK»           │
+│ + location_id: int  «FK»             │
+│ + threshold_id: int  «FK»            │
 │ + alert_type: str                    │
 │ + message: str                       │
 │ + severity: str                      │
