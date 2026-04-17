@@ -1,13 +1,13 @@
 from nicegui import ui
 
 from database import init_db
-from ui.dashboard import build_dashboard
+from ui.alert_history import build_alert_history_page
 
 # Datenbank initialisieren (erstellt Tabellen beim ersten Start)
 init_db()
 
-# Dashboard aufbauen
-build_dashboard()
+# Alert-History-Seite aufbauen (neues Dark-Theme-Layout)
+build_alert_history_page()
 
 # NiceGUI starten
-ui.run(title="Weather Guard — B2B Logistics", port=8080, reload=False)
+ui.run(title="WeatherGuard", port=8080, reload=False, dark=True)

@@ -1,25 +1,26 @@
 from datetime import datetime
+from typing import Optional, TYPE_CHECKING
 
-from sqlalchemy import Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlmodel import SQLModel, Field, Relationship
 
-from database import Base
+if TYPE_CHECKING:
+    from models.location import Location
 
 
-class Alert(Base):
+class Alert(SQLModel, table=True):
     __tablename__ = "alerts"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    location_id: Mapped[int] = mapped_column(Integer, ForeignKey("locations.id"), nullable=False)
-    threshold_label: Mapped[str] = mapped_column(String(100), nullable=False)
-    severity: Mapped[str] = mapped_column(String(20), nullable=False)
-    parameter: Mapped[str] = mapped_column(String(30), nullable=False)
-    actual_value: Mapped[float] = mapped_column(Float, nullable=False)
-    threshold_value: Mapped[float] = mapped_column(Float, nullable=False)
-    forecast_time: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    id: Optional[int] = Field(default=None, primary_key=True)
+    location_id: int = Field(foreign_key="locations.id")
+    threshold_label: str = Field(max_length=100)
+    severity: str = Field(max_length=20)
+    parameter: str = Field(max_length=30)
+    actual_value: float
+    threshold_value: float
+    forecast_time: datetime
+    created_at: datetime = Field(default_factory=datetime.now)
 
-    location = relationship("Location", back_populates="alerts")
+    location: Optional["Location"] = Relationship(back_populates="alerts")
 
     def __repr__(self) -> str:
         return f"<Alert('{self.threshold_label}' at {self.location_id}, severity='{self.severity}')>"

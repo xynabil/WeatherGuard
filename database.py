@@ -1,23 +1,18 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, DeclarativeBase
+from sqlmodel import SQLModel, create_engine, Session
 
 from config import DATABASE_URL
 
 
-class Base(DeclarativeBase):
-    pass
-
-
 engine = create_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(bind=engine)
 
 
 def init_db():
-    from models.location import Location
-    from models.threshold import WeatherThreshold
-    from models.alert import Alert
-    Base.metadata.create_all(bind=engine)
+    # Wichtig: Models importieren, damit SQLModel die Tabellen kennt
+    from models.location import Location  # noqa: F401
+    from models.threshold import WeatherThreshold  # noqa: F401
+    from models.alert import Alert  # noqa: F401
+    SQLModel.metadata.create_all(engine)
 
 
-def get_session():
-    return SessionLocal()
+def get_session() -> Session:
+    return Session(engine)
