@@ -1,0 +1,251 @@
+digraph ClassDiagram {
+    graph [
+        rankdir=TB
+        bgcolor="#1a1a2e"
+        fontname="Helvetica Neue"
+        fontsize=12
+        pad=0.5
+        nodesep=0.8
+        ranksep=1.2
+        splines=ortho
+    ]
+    node [
+        shape=none
+        fontname="Helvetica Neue"
+        fontsize=11
+    ]
+    edge [
+        color="#4a9eff"
+        arrowsize=0.8
+        penwidth=1.5
+        fontname="Helvetica Neue"
+        fontsize=10
+        fontcolor="#a0a0c0"
+    ]
+
+    // ─── Nodes ───────────────────────────────────────────────────────────
+
+    User [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" COLOR="#4a9eff" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>User</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ username : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ email : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ password_hash : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ company : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ created_at : datetime</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ check_password(plain) : bool</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    Location [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" COLOR="#4a9eff" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>Location</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ name : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ user_id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ latitude : float</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ longitude : float</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ location_type : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ is_active : bool</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    WeatherThreshold [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>WeatherThreshold</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ location_id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ condition : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ operator : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ value : float</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ severity : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ description : str</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ is_exceeded(value) : bool</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    WeatherForecast [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>WeatherForecast</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ temperature : float</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ wind_speed : float</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ precipitation : float</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ symbol_code : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ location : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ fetched_at : datetime</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ __str__() : str</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ __repr__() : str</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    SRFWeatherService [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>SRFWeatherService</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _client_id : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _client_secret : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _token : str</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ get_forecast(lat, lon) : WeatherForecast</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _fetch_token() : str</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _parse_response() : WeatherForecast</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    RiskAnalyzer [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>RiskAnalyzer</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _weather_service : SRFWeatherService</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ analyze(location) : list[Alert]</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ analyze_all() : list[Alert]</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _check_threshold(forecast, t) : Alert</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _is_duplicate(alert) : bool</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    Alert [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>Alert</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ location_id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ threshold_id : int</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ alert_type : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ message : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ severity : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ triggered_at : datetime</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">+ is_read : bool</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    AlertStatistics [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>AlertStatistics</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _alerts : list[Alert]</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ total() : int</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ by_type() : dict</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ by_severity() : dict</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ by_day() : dict</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
+    // ─── Edges ───────────────────────────────────────────────────────────
+
+    // Layout hints: keep related nodes together
+    { rank=same; User; Location }
+    { rank=same; WeatherThreshold; Alert }
+    { rank=same; SRFWeatherService; RiskAnalyzer; AlertStatistics }
+
+    User -> Location [
+        label="  1 owns 0..*  "
+        arrowhead=vee
+        style=solid
+    ]
+    Location -> WeatherThreshold [
+        label="  1 has 0..*  "
+        arrowhead=vee
+        style=solid
+    ]
+    SRFWeatherService -> WeatherForecast [
+        label="  returns  "
+        arrowhead=vee
+        style=solid
+    ]
+    RiskAnalyzer -> Alert [
+        label="  creates  "
+        arrowhead=vee
+        style=solid
+    ]
+    RiskAnalyzer -> SRFWeatherService [
+        label="  uses  "
+        arrowhead=vee
+        style=dashed
+    ]
+    AlertStatistics -> Alert [
+        label="  aggregates  "
+        arrowhead=vee
+        style=dashed
+    ]
+}
