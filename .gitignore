@@ -4,3 +4,5 @@ __pycache__/
 *.db
 .venv/
 config.py
+.claude/worktrees/eager-borg-963f53/
+.claude/worktrees/sad-wiles-8a45b5/
