@@ -4,10 +4,10 @@ digraph ClassDiagram {
         bgcolor="#1a1a2e"
         fontname="Helvetica Neue"
         fontsize=12
-        pad=0.5
-        nodesep=0.8
-        ranksep=1.2
-        splines=ortho
+        pad=0.6
+        nodesep=0.9
+        ranksep=1.4
+        splines=curved
     ]
     node [
         shape=none
@@ -20,7 +20,9 @@ digraph ClassDiagram {
         penwidth=1.5
         fontname="Helvetica Neue"
         fontsize=10
-        fontcolor="#a0a0c0"
+        fontcolor="#c0c8e0"
+        labelfloat=false
+        labeldistance=2.0
     ]
 
     // ─── Nodes ───────────────────────────────────────────────────────────
@@ -30,7 +32,7 @@ digraph ClassDiagram {
           <TR><TD>
             <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
                    BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
-              <TR><TD BGCOLOR="#0f3460" COLOR="#4a9eff" ALIGN="CENTER" CELLPADDING="8">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
                 <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>User</B></FONT>
               </TD></TR>
               <TR><TD ALIGN="LEFT" CELLPADDING="6">
@@ -54,7 +56,7 @@ digraph ClassDiagram {
           <TR><TD>
             <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
                    BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
-              <TR><TD BGCOLOR="#0f3460" COLOR="#4a9eff" ALIGN="CENTER" CELLPADDING="8">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
                 <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>Location</B></FONT>
               </TD></TR>
               <TR><TD ALIGN="LEFT" CELLPADDING="6">
@@ -96,6 +98,29 @@ digraph ClassDiagram {
         </TABLE>
     >]
 
+    SRFWeatherService [label=<
+        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
+          <TR><TD>
+            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
+                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
+              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
+                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>SRFWeatherService</B></FONT>
+              </TD></TR>
+              <TR><TD ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _client_id : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _client_secret : str</FONT><BR/>
+                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _token : str</FONT>
+              </TD></TR>
+              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ get_forecast(lat, lon) : WeatherForecast</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _fetch_token() : str</FONT><BR/>
+                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _parse_response() : WeatherForecast</FONT>
+              </TD></TR>
+            </TABLE>
+          </TD></TR>
+        </TABLE>
+    >]
+
     WeatherForecast [label=<
         <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
           <TR><TD>
@@ -115,29 +140,6 @@ digraph ClassDiagram {
               <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
                 <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ __str__() : str</FONT><BR/>
                 <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ __repr__() : str</FONT>
-              </TD></TR>
-            </TABLE>
-          </TD></TR>
-        </TABLE>
-    >]
-
-    SRFWeatherService [label=<
-        <TABLE BORDER="0" CELLBORDER="0" CELLSPACING="0" CELLPADDING="0">
-          <TR><TD>
-            <TABLE BORDER="1" CELLBORDER="0" CELLSPACING="0" CELLPADDING="6"
-                   BGCOLOR="#16213e" COLOR="#4a9eff" STYLE="ROUNDED">
-              <TR><TD BGCOLOR="#0f3460" ALIGN="CENTER" CELLPADDING="8">
-                <FONT COLOR="#e8e8e8" POINT-SIZE="13"><B>SRFWeatherService</B></FONT>
-              </TD></TR>
-              <TR><TD ALIGN="LEFT" CELLPADDING="6">
-                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _client_id : str</FONT><BR/>
-                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _client_secret : str</FONT><BR/>
-                <FONT COLOR="#a0a0c0" POINT-SIZE="10">– _token : str</FONT>
-              </TD></TR>
-              <TR><TD BGCOLOR="#1a1a3e" ALIGN="LEFT" CELLPADDING="6">
-                <FONT COLOR="#4ec9a8" POINT-SIZE="10">+ get_forecast(lat, lon) : WeatherForecast</FONT><BR/>
-                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _fetch_token() : str</FONT><BR/>
-                <FONT COLOR="#4ec9a8" POINT-SIZE="10">– _parse_response() : WeatherForecast</FONT>
               </TD></TR>
             </TABLE>
           </TD></TR>
@@ -211,41 +213,46 @@ digraph ClassDiagram {
         </TABLE>
     >]
 
+    // ─── Rank layout ─────────────────────────────────────────────────────
+    // Row 1: domain model chain
+    { rank=same; User; Location; WeatherThreshold }
+    // Row 2: services (SRF sits above RiskAnalyzer so "uses" flows downward)
+    { rank=same; SRFWeatherService; WeatherForecast }
+    // Row 3: business logic and output
+    { rank=same; RiskAnalyzer; Alert; AlertStatistics }
+
     // ─── Edges ───────────────────────────────────────────────────────────
 
-    // Layout hints: keep related nodes together
-    { rank=same; User; Location }
-    { rank=same; WeatherThreshold; Alert }
-    { rank=same; SRFWeatherService; RiskAnalyzer; AlertStatistics }
-
     User -> Location [
-        label="  1 owns 0..*  "
+        xlabel="owns  1→0..*"
         arrowhead=vee
         style=solid
     ]
     Location -> WeatherThreshold [
-        label="  1 has 0..*  "
+        xlabel="has  1→0..*"
         arrowhead=vee
         style=solid
     ]
     SRFWeatherService -> WeatherForecast [
-        label="  returns  "
-        arrowhead=vee
-        style=solid
-    ]
-    RiskAnalyzer -> Alert [
-        label="  creates  "
+        xlabel="returns"
         arrowhead=vee
         style=solid
     ]
     RiskAnalyzer -> SRFWeatherService [
-        label="  uses  "
+        xlabel="uses"
         arrowhead=vee
         style=dashed
+        color="#6ab0ff"
+    ]
+    RiskAnalyzer -> Alert [
+        xlabel="creates"
+        arrowhead=vee
+        style=solid
     ]
     AlertStatistics -> Alert [
-        label="  aggregates  "
+        xlabel="aggregates"
         arrowhead=vee
         style=dashed
+        color="#6ab0ff"
     ]
 }
