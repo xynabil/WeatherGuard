@@ -1,8 +1,6 @@
 .env
 __pycache__/
 *.pyc
-*.db
 .venv/
-config.py
-.claude/worktrees/eager-borg-963f53/
-.claude/worktrees/sad-wiles-8a45b5/
+# DB-Datei wird committed, damit Demo-Daten direkt verfügbar sind
+# config.py muss lokal vorhanden sein (DATABASE_URL = "sqlite:///weatherguard.db")
