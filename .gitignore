@@ -1,6 +1,6 @@
 .env
 __pycache__/
 *.pyc
-*.db
 .venv/
-config.py
+# DB-Datei wird committed, damit Demo-Daten direkt verfügbar sind
+# config.py muss lokal vorhanden sein (DATABASE_URL = "sqlite:///weatherguard.db")

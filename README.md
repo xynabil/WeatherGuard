@@ -2,7 +2,7 @@
 
 A B2B planning tool for companies in weather-dependent industries — construction, event logistics, and delivery services. Firms register their sites and get automatic alerts when critical weather conditions are forecast at their locations.
 
-Built with Python, NiceGUI, SQLite (via SQLModel ORM), the SRF Meteo API v2 (SRG SSR Developer Portal), and the Leaflet.js map library.
+Built with Python, NiceGUI, SQLite (via SQLModel ORM), the Open-Meteo weather API, and the Leaflet.js map library.
 
 ---
 
@@ -26,75 +26,6 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 | 8 | operations manager | pick a location on an interactive map instead of entering coordinates manually | I can add sites faster and without errors |
 | 9 | user | log in with my own account | my locations and alerts are separate from other companies |
 | 10 | operations manager | see charts of alert frequency and type in the history view | I can spot patterns and identify high-risk periods |
-
----
-
-## Data Types, Inputs & Expected Outputs
-
-### User (input)
-
-| Field | Type | Example |
-|---|---|---|
-| `id` | `int` | `1` |
-| `username` | `str` | `"m.mueller"` |
-| `email` | `str` | `"m.mueller@muellerba.ch"` |
-| `password_hash` | `str` | `"$2b$12$..."` |
-| `company` | `str` | `"Müller Bau AG"` |
-| `created_at` | `datetime` | `2026-01-15 09:00:00` |
-
-### Location (input)
-
-| Field | Type | Example |
-|---|---|---|
-| `name` | `str` | `"Baustelle Olten Zentrum"` |
-| `user_id` | `int` | `1` |
-| `latitude` | `float` | `47.3523` |
-| `longitude` | `float` | `7.9043` |
-| `location_type` | `str` | `"construction"` or `"event"` or `"delivery"` |
-| `is_active` | `bool` | `True` |
-
-### WeatherThreshold (input – per location)
-
-| Field | Type | Example |
-|---|---|---|
-| `location_id` | `int` | `1` |
-| `condition` | `str` | `"frost"`, `"wind"`, `"rain"` |
-| `operator` | `str` | `"<"` or `">"` |
-| `value` | `float` | `2.0` (°C) or `40.0` (km/h) |
-| `severity` | `str` | `"warning"` or `"danger"` |
-| `description` | `str` | `"No concrete pours below 2°C"` |
-
-### WeatherForecast (from SRF Meteo API)
-
-| Field | Type | Example |
-|---|---|---|
-| `temperature` | `float` | `1.5` (°C) |
-| `wind_speed` | `float` | `67.0` (km/h) |
-| `precipitation` | `float` | `12.3` (mm) |
-| `symbol_code` | `str` | `"34"` |
-| `location` | `str` | `"Olten"` |
-| `fetched_at` | `datetime` | `2026-04-09 14:32:00` |
-
-### Alert (output)
-
-| Field | Type | Example |
-|---|---|---|
-| `location_id` | `int` | `1` |
-| `threshold_id` | `int` | `2` |
-| `alert_type` | `str` | `"frost"` |
-| `message` | `str` | `"Temp 1.5°C – below threshold 2°C"` |
-| `severity` | `str` | `"danger"` |
-| `triggered_at` | `datetime` | `2026-04-09 14:32:00` |
-| `is_read` | `bool` | `False` |
-
-### AlertStatistics (computed)
-
-| Field | Type | Example |
-|---|---|---|
-| `total` | `int` | `24` |
-| `by_type` | `dict[str, int]` | `{"frost": 7, "wind": 11, "rain": 6}` |
-| `by_severity` | `dict[str, int]` | `{"warning": 17, "danger": 7}` |
-| `by_day` | `dict[str, int]` | `{"2026-04-09": 5, "2026-04-10": 3, ...}` |
 
 ---
 
@@ -241,24 +172,24 @@ erDiagram
   LOCATION ||--o{ ALERT : "triggers"
   WEATHER_THRESHOLD ||--o{ ALERT : "generates"
 ```
+![WeatherGuard Class Diagram](docs/class_diagram.png)
 
 ---
 
 ## Architecture
 
 ```
-NiceGUI Dashboard (Frontend)
+NiceGUI Frontend (Browser)
         │
-        ├── Leaflet.js Map  →  user picks coordinates by clicking
+        ├── Leaflet.js Map  →  user picks coordinates by clicking or searching
         │
         ▼
-AuthService (Login / Session)
+Login / Session (app.storage.user)
         │
         ▼
 RiskAnalyzer (Business Logic)
-   ├── SRFWeatherService  →  SRF Meteo API
-   ├── AlertStatistics    →  aggregations for history charts
-   └── DB Session         →  SQLite
+   ├── WeatherClient  →  Open-Meteo API (free, no key required)
+   └── DB Session     →  SQLite
         ├── User
         ├── Location
         ├── WeatherThreshold
@@ -267,54 +198,84 @@ RiskAnalyzer (Business Logic)
 
 ---
 
+## APIs Used
+
+| API | Purpose | Cost | Key required |
+|-----|---------|------|--------------|
+| [Open-Meteo](https://open-meteo.com) | 3-day hourly weather forecast (temperature, wind, gusts, rain, snow, humidity) | Free | No |
+| [Nominatim / OpenStreetMap](https://nominatim.openstreetmap.org) | Geocoding — converts place names to coordinates | Free | No |
+| [Leaflet.js](https://leafletjs.com) | Interactive map with clickable marker for location picking | Free | No |
+
+---
+
 ## Project Structure
 
+The structure mirrors the pizza reference project exactly.
+
 ```
-weather_guard/
-├── main.py
-├── config.py                  # API credentials – not in repo
-├── models/
-│   ├── user.py
-│   ├── location.py
-│   ├── threshold.py
-│   └── alert.py
+WeatherGuard/
+├── main.py                    # Entrypoint — python main.py
+├── application.py             # WeatherGuardApplication (composition root)
+├── data_access/
+│   ├── db.py                  # Database class (engine, schema init, sessions)
+│   ├── dao.py                 # UserDAO, LocationDAO, AlertDAO (CRUD)
+│   └── seed.py                # WeatherSeeder (demo data on first run)
+├── domain/
+│   └── models.py              # All ORM models: User, Location, WeatherThreshold, Alert
 ├── services/
-│   ├── weather_service.py     # SRF API + WeatherForecast
-│   ├── risk_analyzer.py       # threshold checks, alert creation, deduplication
-│   ├── alert_statistics.py    # aggregations for history charts
-│   └── auth_service.py        # login, session, password hashing
-├── database/
-│   └── db.py
+│   ├── weather_client.py      # Open-Meteo API → internal forecast format
+│   └── risk_analyzer.py       # Threshold checks, deduplication, alert creation
 ├── ui/
-│   ├── dashboard.py
-│   ├── history.py             # alert history view with charts
-│   ├── location_form.py       # includes interactive map picker
-│   └── login.py
+│   ├── controllers.py         # AuthController, LocationController, AlertController, HistoryController
+│   └── pages.py               # Pages class — registers all NiceGUI routes + UI code
+├── weatherguard.db            # SQLite database (pre-seeded with demo data)
 └── requirements.txt
 ```
+
+---
+
+## OOP Concepts Used
+
+| Concept | Where |
+|---------|-------|
+| **Classes & Objects** | `User`, `Location`, `WeatherThreshold`, `Alert`, `WeatherClient`, `RiskAnalyzer` |
+| **Encapsulation** | `threshold.is_exceeded(value)`, `user.check_password(pw)` hide internal logic |
+| **Relationships / Associations** | `Location` has a list of `WeatherThreshold`, each `Alert` belongs to a `Location` |
+| **Separation of concerns** | Models (data), Services (logic), UI (presentation) are in separate modules |
+| **DRY principle** | `_sidebar()` helper called from every page in `pages.py` — defined once, reused everywhere |
 
 ---
 
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/weather-guard.git
-cd weather-guard
+git clone https://github.com/YOUR-USERNAME/WeatherGuard.git
+cd WeatherGuard
 pip install -r requirements.txt
-```
-
-Create `config.py`:
-```python
-SRF_CLIENT_ID = "your_client_id"
-SRF_CLIENT_SECRET = "your_client_secret"
-SECRET_KEY = "your_session_secret"
-```
-
-```bash
 python main.py
 # Open http://localhost:8080
 ```
 
-API keys: [developer.srgssr.ch](https://developer.srgssr.ch) → SRF-MeteoProductFreemium
+The database (`weatherguard.db`) is included in the repo and already contains demo data — no setup needed.
 
-> `config.py` and `*.db` are in `.gitignore` and will not be committed to the repository.
+---
+
+## Demo Login
+
+| Username | Password |
+|----------|----------|
+| `admin`  | `admin123` |
+
+---
+
+## Demo Data
+
+The seeded database includes:
+
+| Location | Type | Example Thresholds |
+|----------|------|--------------------|
+| Baustelle Zürich HB | Construction site | Wind > 50 km/h, Frost < 2°C |
+| Open-Air Luzern | Event | Rain > 5 mm, Wind gusts > 60 km/h |
+| Lieferroute Basel | Delivery | Snow > 2 cm, Ice risk < 1°C |
+
+10 historical alerts are spread across the last 7 days so charts and history are visible immediately after cloning.
