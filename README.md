@@ -31,6 +31,147 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 
 ## Class Diagram
 
+```mermaid
+classDiagram
+  class User {
+    +int id
+    +str username
+    +str email
+    +str password_hash
+    +str company
+    +datetime created_at
+    +check_password(plain: str) bool
+  }
+
+  class Location {
+    +int id
+    +str name
+    +int user_id
+    +float latitude
+    +float longitude
+    +str location_type
+    +bool is_active
+  }
+
+  class WeatherThreshold {
+    +int id
+    +int location_id
+    +str condition
+    +str operator
+    +float value
+    +str severity
+    +str description
+    +is_exceeded(value: float) bool
+  }
+
+  class Alert {
+    +int id
+    +int location_id
+    +int threshold_id
+    +str alert_type
+    +str message
+    +str severity
+    +datetime triggered_at
+    +bool is_read
+  }
+
+  class WeatherForecast {
+    +float temperature
+    +float wind_speed
+    +float precipitation
+    +str symbol_code
+    +str location
+    +datetime fetched_at
+    +str() str
+    +repr() str
+  }
+
+  class SRFWeatherService {
+    -str _client_id
+    -str _client_secret
+    -str _token
+    +get_forecast(lat: float, lon: float) WeatherForecast
+    -_fetch_token() str
+    -_parse_response() WeatherForecast
+  }
+
+  class RiskAnalyzer {
+    -SRFWeatherService _weather_service
+    +analyze(location: Location) list~Alert~
+    +analyze_all() list~Alert~
+    -_check_threshold(forecast: WeatherForecast, t: WeatherThreshold) Alert
+    -_is_duplicate(alert: Alert) bool
+  }
+
+  class AlertStatistics {
+    -list~Alert~ _alerts
+    +total() int
+    +by_type() dict
+    +by_severity() dict
+    +by_day() dict
+  }
+
+  User "1" --> "0..*" Location : owns
+  Location "1" --> "0..*" WeatherThreshold : has
+  Location "1" --> "0..*" Alert : triggers
+  WeatherThreshold "1" --> "0..*" Alert : generates
+  RiskAnalyzer --> SRFWeatherService : uses
+  RiskAnalyzer --> Alert : creates
+  SRFWeatherService --> WeatherForecast : returns
+  AlertStatistics --> Alert : aggregates
+```
+
+---
+
+## ER-Diagramm
+
+```mermaid
+erDiagram
+  USER {
+    int id PK
+    string username
+    string email
+    string password_hash
+    string company
+    datetime created_at
+  }
+
+  LOCATION {
+    int id PK
+    int user_id FK
+    string name
+    float latitude
+    float longitude
+    string location_type
+    bool is_active
+  }
+
+  WEATHER_THRESHOLD {
+    int id PK
+    int location_id FK
+    string condition
+    string operator
+    float value
+    string severity
+    string description
+  }
+
+  ALERT {
+    int id PK
+    int location_id FK
+    int threshold_id FK
+    string alert_type
+    string message
+    string severity
+    datetime triggered_at
+    bool is_read
+  }
+
+  USER ||--o{ LOCATION : "owns"
+  LOCATION ||--o{ WEATHER_THRESHOLD : "has"
+  LOCATION ||--o{ ALERT : "triggers"
+  WEATHER_THRESHOLD ||--o{ ALERT : "generates"
+```
 ![WeatherGuard Class Diagram](docs/class_diagram.png)
 
 ---
