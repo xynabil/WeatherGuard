@@ -151,8 +151,8 @@ classDiagram
     +str symbol_code
     +str location
     +datetime fetched_at
-    +__str__() str
-    +__repr__() str
+    +str() str
+    +repr() str
   }
 
   class SRFWeatherService {
