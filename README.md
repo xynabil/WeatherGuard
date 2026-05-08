@@ -172,7 +172,7 @@ erDiagram
   LOCATION ||--o{ ALERT : "triggers"
   WEATHER_THRESHOLD ||--o{ ALERT : "generates"
 ```
-![WeatherGuard Class Diagram](docs/class_diagram.png)
+
 
 ---
 
