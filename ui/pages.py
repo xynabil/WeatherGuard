@@ -7,7 +7,10 @@ Design pattern: same as the Pizza reference project (Pages class registers route
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 import requests as http_requests
+
+REFRESH_INTERVAL = 180  # 3 Minuten
 
 from nicegui import ui, app
 
@@ -434,6 +437,7 @@ def _header_user_chip() -> None:
 
 def _dashboard_main(location: LocationController, alert: AlertController, user_id: int = None) -> None:
     callbacks = {}
+    last_refresh: dict = {"ts": datetime.now()}
 
     with ui.column().classes("grow").style(
         f"background: {BG_MAIN}; height: 100vh; overflow-y: auto; "
@@ -441,9 +445,14 @@ def _dashboard_main(location: LocationController, alert: AlertController, user_i
     ):
         with ui.row().classes("w-full items-center justify-between no-wrap"):
             with ui.column().style("gap: 4px;"):
-                ui.label("Dashboard").style(
-                    f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
-                )
+                # H1 mit Refresh-Status daneben
+                with ui.row().classes("items-baseline no-wrap").style("gap: 10px;"):
+                    ui.label("Dashboard").style(
+                        f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
+                    )
+                    refresh_info = ui.label("").style(
+                        f"color: {TEXT_MUTED}; font-size: 12px; font-weight: 400;"
+                    )
                 ui.label("Standorte verwalten & Wetter analysieren").style(
                     f"color: {TEXT_MUTED}; font-size: 14px;"
                 )
@@ -485,6 +494,40 @@ def _dashboard_main(location: LocationController, alert: AlertController, user_i
         callbacks["refresh_alerts"]    = refresh_alerts
         refresh_locations()
         refresh_alerts()
+
+        # --- Sekunden-Ticker: Refresh-Info neben dem H1 aktualisieren ---
+        def _update_refresh_label():
+            elapsed = int((datetime.now() - last_refresh["ts"]).total_seconds())
+            next_in = REFRESH_INTERVAL - elapsed
+
+            elapsed_str = (
+                "gerade eben" if elapsed < 60
+                else f"vor {elapsed // 60} Min."
+            )
+            next_str = (
+                f"in {next_in} Sek." if next_in < 60
+                else f"in {next_in // 60} Min."
+            )
+            refresh_info.set_text(
+                f"(letzte Aktualisierung {elapsed_str} / nächste Aktualisierung {next_str})"
+            )
+
+        ui.timer(1.0, _update_refresh_label)
+
+        # --- 3-Minuten-Timer: alle Standorte neu analysieren ---
+        async def _auto_refresh():
+            locs = location.list_locations(user_id=user_id)
+            for loc in locs:
+                try:
+                    alert.run_analysis(loc.id)
+                except Exception as exc:
+                    ui.notify(f"Fehler bei {loc.name}: {exc}", type="negative")
+
+            last_refresh["ts"] = datetime.now()
+            callbacks["refresh_alerts"]()
+            ui.notify("Dashboard automatisch aktualisiert", type="info", timeout=3000)
+
+        ui.timer(REFRESH_INTERVAL, _auto_refresh)
 
 
 async def _open_add_dialog(location: LocationController, callbacks: dict, user_id: int = None) -> None:
