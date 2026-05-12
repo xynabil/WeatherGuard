@@ -1,5 +1,13 @@
-"""App entrypoint — run with: python main.py"""
+"""Startpunkt der App.
+
+Aufruf:
+    python main.py
+
+Öffnet danach im Browser: http://localhost:8080
+"""
 
 from application import WeatherGuardApplication
 
-WeatherGuardApplication().run()
+
+app = WeatherGuardApplication()
+app.run()

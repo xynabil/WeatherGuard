@@ -1,53 +1,37 @@
-"""Database configuration and initialization.
+"""Datenbank-Verbindung.
 
-Exposes a Database facade that owns the SQLAlchemy engine and provides
-schema initialization and session management.
-Design pattern: same as Database class in the pizza reference project.
+Die Klasse Database kümmert sich um drei Dinge:
+1. Verbindung zur SQLite-Datei (engine)
+2. Tabellen anlegen (create_tables)
+3. Neue Datenbank-Session öffnen (new_session)
 """
 
-from __future__ import annotations
-
-import os
-from contextlib import contextmanager
-from typing import Iterator, Optional
-
 from sqlmodel import SQLModel, Session, create_engine
-from sqlalchemy.engine import Engine
 
 
 class Database:
-    """Database facade — engine, schema init, and session management in one place."""
+    """Wrappt die SQLite-Datenbank in eine einfache Klasse."""
 
-    def __init__(self, database_url: Optional[str] = None) -> None:
-        url = database_url or os.getenv("DATABASE_URL", "sqlite:///weatherguard.db")
-        # check_same_thread=False is required because NiceGUI uses multiple threads
-        self._engine: Engine = create_engine(
-            url, echo=False, connect_args={"check_same_thread": False}
+    def __init__(self, database_url="sqlite:///weatherguard.db"):
+        # check_same_thread=False brauchen wir, weil NiceGUI mehrere Threads nutzt.
+        # Sonst gäbe es Fehler beim parallelen Zugriff auf die Datenbank.
+        self.engine = create_engine(
+            database_url,
+            connect_args={"check_same_thread": False},
         )
 
-    @property
-    def engine(self) -> Engine:
-        return self._engine
-
-    def init_schema(self) -> None:
-        """Create all tables (does nothing if they already exist)."""
-        # Import models so SQLModel knows about them before create_all
+    def create_tables(self):
+        """Erstellt alle Tabellen in der Datenbank (falls sie noch nicht existieren)."""
+        # Modelle importieren, damit SQLModel sie kennt, bevor wir create_all() aufrufen
         from domain.models import User, Location, WeatherThreshold, Alert  # noqa: F401
-        SQLModel.metadata.create_all(self._engine)
+        SQLModel.metadata.create_all(self.engine)
 
-    @contextmanager
-    def session_scope(self) -> Iterator[Session]:
-        """Provide a transactional scope — commits on success, rolls back on error."""
-        session = Session(self._engine)
-        try:
-            yield session
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
-        finally:
-            session.close()
+    def new_session(self):
+        """Öffnet eine neue Datenbank-Session.
 
-    def session(self) -> Session:
-        """Return a plain session (caller is responsible for closing it)."""
-        return Session(self._engine)
+        Der Aufrufer muss die Session danach selbst mit session.close() schliessen,
+        oder ein with-Block verwenden:
+            with Session(db.engine) as session:
+                ...
+        """
+        return Session(self.engine)
