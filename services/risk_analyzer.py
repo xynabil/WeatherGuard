@@ -1,9 +1,13 @@
-"""RiskAnalyzer - vergleicht die Wetter-Prognose mit den Grenzwerten.
+"""RiskAnalyzer - prüft Wetterdaten gegen Grenzwerte.
 
-Geht jede Stunde der 3-Tages-Prognose durch und prüft pro Location:
-"Wird hier irgendwann ein Grenzwert überschritten?"
-Falls ja, wird ein Alert erzeugt - aber nur EINER pro Grenzwert
-(sonst hätten wir 100+ Alerts über 3 Tage Prognose, das wäre unbrauchbar).
+Wir gehen die Prognose Stunde für Stunde durch und schauen,
+ob ein Grenzwert überschritten wird. Pro Grenzwert erzeugen wir
+maximal EINEN Alert (auch wenn er mehrmals überschritten wird),
+damit wir nicht 100+ Warnungen pro Standort haben.
+
+Wir merken uns:
+- Den ersten Zeitpunkt, an dem der Grenzwert überschritten wird
+- Den schlimmsten Wert (am weitesten vom Grenzwert entfernt)
 """
 
 from datetime import datetime
@@ -11,78 +15,37 @@ from datetime import datetime
 from domain.models import Alert
 
 
-# Menschenlesbare Namen für die Parameter (werden in der UI angezeigt)
-PARAMETER_LABELS = {
-    "TTT_C":          "Temperatur (°C)",
-    "FF_KMH":         "Wind (km/h)",
-    "FX_KMH":         "Windböen (km/h)",
-    "RRR_MM":         "Niederschlag (mm)",
-    "FRESHSNOW_CM":   "Neuschnee (cm)",
-    "RELHUM_PERCENT": "Luftfeuchtigkeit (%)",
-}
-
-
 class RiskAnalyzer:
-    """Prüft Wetterdaten gegen Grenzwerte und erzeugt daraus Alerts."""
+    """Analysiert eine Wetter-Prognose und erstellt Warnungen."""
+
+    # Anzeigename pro Wetter-Parameter (für die UI)
+    PARAMETER_LABELS = {
+        "TTT_C":         "Temperatur (°C)",
+        "FF_KMH":        "Wind (km/h)",
+        "FX_KMH":        "Windböen (km/h)",
+        "RRR_MM":        "Niederschlag (mm)",
+        "FRESHSNOW_CM":  "Neuschnee (cm)",
+        "RELHUM_PERCENT": "Luftfeuchtigkeit (%)",
+    }
 
     def __init__(self, weather_client):
         self.weather_client = weather_client
 
     def analyze(self, location):
-        """Analysiert die Prognose für eine Location.
+        """Analysiert die Prognose eines Standorts und gibt Alerts zurück."""
+        # 1. Wetter-Prognose holen
+        forecast = self.weather_client.get_forecast(location.latitude, location.longitude)
 
-        Gibt eine Liste von Alert-Objekten zurück. Pro Grenzwert höchstens einer:
-        - mit dem ersten Zeitpunkt, an dem der Grenzwert überschritten wird
-        - mit dem schlimmsten Wert über die ganze Prognose hinweg
-        """
-        # 1. Wetterdaten holen
-        forecast = self.weather_client.get_forecast(
-            location.latitude, location.longitude,
-        )
-
-        # 2. Für jeden Grenzwert merken wir uns:
-        #    "wann zuerst überschritten?" und "wie schlimm wird's maximal?"
-        #    Aufbau: {threshold_id: {"first_time": ..., "worst_value": ..., "threshold": ...}}
+        # 2. Verletzungen sammeln (pro Grenzwert max. eine)
+        # violations[threshold_id] = {"first_time": ..., "worst_value": ..., "threshold": ...}
         violations = {}
 
-        # Durch alle Tage und Stunden gehen
+        # Jede Stunde der Prognose durchgehen
         for day in forecast.get("days", []):
             for hour_data in day.get("hours", []):
-                # Zeitpunkt aus den Daten lesen
-                time_str = hour_data.get("date_time", "")
-                try:
-                    forecast_time = datetime.fromisoformat(time_str)
-                except (ValueError, TypeError):
-                    forecast_time = datetime.now()
+                self._check_hour(hour_data, location.thresholds, violations)
 
-                # Jeden Grenzwert dieser Location prüfen
-                for threshold in location.thresholds:
-                    actual_value = hour_data.get(threshold.parameter)
-                    if actual_value is None:
-                        continue   # Diesen Parameter haben wir nicht
-
-                    # Überschreitung?
-                    if threshold.is_exceeded(actual_value):
-                        if threshold.id not in violations:
-                            # Erste Überschreitung dieses Grenzwerts merken
-                            violations[threshold.id] = {
-                                "first_time":  forecast_time,
-                                "worst_value": actual_value,
-                                "threshold":   threshold,
-                            }
-                        else:
-                            # Schon mal überschritten - falls jetzt noch schlimmer, neuen Wert merken
-                            current_worst = violations[threshold.id]["worst_value"]
-                            if threshold.operator in (">", ">="):
-                                # Bei ">"-Grenzwerten ist "schlimmer" = höher (mehr Wind, mehr Regen)
-                                if actual_value > current_worst:
-                                    violations[threshold.id]["worst_value"] = actual_value
-                            else:
-                                # Bei "<"-Grenzwerten ist "schlimmer" = niedriger (z.B. tiefere Temperatur)
-                                if actual_value < current_worst:
-                                    violations[threshold.id]["worst_value"] = actual_value
-
-        # 3. Für jeden überschrittenen Grenzwert genau einen Alert bauen
+        # 3. Aus den Verletzungen Alerts machen
         alerts = []
         for info in violations.values():
             threshold = info["threshold"]
@@ -96,4 +59,45 @@ class RiskAnalyzer:
                 forecast_time=info["first_time"],
             )
             alerts.append(alert)
+
         return alerts
+
+    def _check_hour(self, hour_data, thresholds, violations):
+        """Prüft eine einzelne Stunde gegen alle Grenzwerte eines Standorts.
+
+        Wenn ein Grenzwert überschritten wird, speichern wir das in 'violations'.
+        """
+        # Zeitpunkt dieser Stunde parsen
+        try:
+            forecast_time = datetime.fromisoformat(hour_data.get("date_time", ""))
+        except (ValueError, TypeError):
+            forecast_time = datetime.now()
+
+        # Jeden Grenzwert prüfen
+        for threshold in thresholds:
+            actual_value = hour_data.get(threshold.parameter)
+            if actual_value is None:
+                continue  # Wert nicht vorhanden → überspringen
+
+            if not threshold.is_exceeded(actual_value):
+                continue  # Grenzwert nicht überschritten → ok
+
+            # Grenzwert wurde überschritten!
+            if threshold.id not in violations:
+                # Erste Überschreitung dieses Grenzwerts
+                violations[threshold.id] = {
+                    "first_time": forecast_time,
+                    "worst_value": actual_value,
+                    "threshold": threshold,
+                }
+            else:
+                # Weitere Überschreitung: ist der neue Wert "schlimmer"?
+                existing = violations[threshold.id]
+                if threshold.operator in (">", ">="):
+                    # Bei "grösser als": je höher, desto schlimmer
+                    if actual_value > existing["worst_value"]:
+                        existing["worst_value"] = actual_value
+                else:
+                    # Bei "kleiner als": je tiefer, desto schlimmer
+                    if actual_value < existing["worst_value"]:
+                        existing["worst_value"] = actual_value

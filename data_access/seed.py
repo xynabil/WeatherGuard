@@ -1,9 +1,8 @@
-"""Demo-Daten für den allerersten Programmstart.
+"""Demo-Daten für die Datenbank.
 
-Wenn die Datenbank beim Start leer ist, füllt WeatherSeeder sie mit:
-- einem Admin-User (admin / admin123)
-- drei Demo-Standorten mit Grenzwerten (Baustelle, Event, Lieferdienst)
-- 10 historischen Alerts (damit die History-Seite direkt Daten zeigt)
+Beim ersten Start der App soll die Datenbank nicht leer sein.
+Diese Klasse fügt einen Demo-User, drei Standorte und ein paar
+historische Alerts ein, damit die App von Anfang an "lebt".
 """
 
 from datetime import datetime, timedelta
@@ -13,7 +12,8 @@ from sqlmodel import select
 from domain.models import User, Location, WeatherThreshold, Alert
 
 
-# Die drei Demo-Standorte mit ihren Grenzwerten
+# Demo-Standorte mit ihren Grenzwerten (als normale Python-Listen/Dicts).
+# So müssen wir die Daten nicht im Code "verstecken".
 DEMO_LOCATIONS = [
     {
         "name": "Baustelle Zürich HB",
@@ -22,7 +22,7 @@ DEMO_LOCATIONS = [
         "thresholds": [
             {"parameter": "TTT_C",  "operator": "<", "value": 5.0,  "label": "Frost (Betonarbeiten)", "severity": "critical"},
             {"parameter": "FX_KMH", "operator": ">", "value": 60.0, "label": "Sturm (Kranarbeiten)",  "severity": "critical"},
-            {"parameter": "RRR_MM", "operator": ">", "value": 10.0, "label": "Starkregen",             "severity": "warning"},
+            {"parameter": "RRR_MM", "operator": ">", "value": 10.0, "label": "Starkregen",            "severity": "warning"},
         ],
     },
     {
@@ -31,8 +31,8 @@ DEMO_LOCATIONS = [
         "branch": "Event", "company": "EventPro GmbH",
         "thresholds": [
             {"parameter": "FX_KMH", "operator": ">", "value": 40.0, "label": "Sturm (Zelte/Bühnen)", "severity": "critical"},
-            {"parameter": "RRR_MM", "operator": ">", "value": 5.0,  "label": "Regen (Outdoor)",       "severity": "warning"},
-            {"parameter": "TTT_C",  "operator": "<", "value": 0.0,  "label": "Frost (Glätte)",        "severity": "warning"},
+            {"parameter": "RRR_MM", "operator": ">", "value": 5.0,  "label": "Regen (Outdoor)",      "severity": "warning"},
+            {"parameter": "TTT_C",  "operator": "<", "value": 0.0,  "label": "Frost (Glätte)",       "severity": "warning"},
         ],
     },
     {
@@ -48,82 +48,85 @@ DEMO_LOCATIONS = [
 ]
 
 
-# Historische Demo-Alerts: (location_index, label, severity, parameter, actual, threshold, days_ago, hour)
+# Demo-Alerts: (Standort-Index, Label, Severity, Parameter, Ist-Wert, Grenzwert, Tage_zurück, Stunde)
 DEMO_ALERTS = [
-    (0, "Sturm (Kranarbeiten)",  "critical", "FX_KMH",        72.0,  60.0, 0,  8),
-    (0, "Starkregen",            "warning",  "RRR_MM",        18.0,  10.0, 1, 14),
-    (0, "Frost (Betonarbeiten)", "critical", "TTT_C",          2.3,   5.0, 3,  6),
-    (0, "Starkregen",            "warning",  "RRR_MM",        14.5,  10.0, 5, 11),
-    (1, "Frost (Glätte)",        "warning",  "TTT_C",          1.5,   2.0, 1,  6),
-    (1, "Regen (Outdoor)",       "warning",  "RRR_MM",         8.2,   5.0, 2, 16),
-    (1, "Sturm (Zelte/Bühnen)",  "critical", "FX_KMH",        55.0,  40.0, 4, 13),
-    (2, "Schneefall",            "warning",  "FRESHSNOW_CM",   8.0,   5.0, 2,  7),
-    (2, "Extremkälte",           "critical", "TTT_C",         -7.1,  -5.0, 3,  4),
-    (2, "Schneefall",            "warning",  "FRESHSNOW_CM",   6.5,   5.0, 6,  9),
+    # Zürich HB (Index 0)
+    (0, "Sturm (Kranarbeiten)",   "critical", "FX_KMH",       72.0,  60.0, 0, 8),
+    (0, "Starkregen",              "warning",  "RRR_MM",       18.0,  10.0, 1, 14),
+    (0, "Frost (Betonarbeiten)",   "critical", "TTT_C",         2.3,   5.0, 3, 6),
+    (0, "Starkregen",              "warning",  "RRR_MM",       14.5,  10.0, 5, 11),
+    # Olten (Index 1)
+    (1, "Frost (Glätte)",          "warning",  "TTT_C",         1.5,   2.0, 1, 6),
+    (1, "Regen (Outdoor)",         "warning",  "RRR_MM",        8.2,   5.0, 2, 16),
+    (1, "Sturm (Zelte/Bühnen)",    "critical", "FX_KMH",       55.0,  40.0, 4, 13),
+    # Basel (Index 2)
+    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  8.0,   5.0, 2, 7),
+    (2, "Extremkälte",             "critical", "TTT_C",        -7.1,  -5.0, 3, 4),
+    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  6.5,   5.0, 6, 9),
 ]
 
 
 class WeatherSeeder:
-    """Füllt eine leere Datenbank mit Demo-Daten."""
+    """Füllt die Datenbank mit Demo-Daten."""
 
     def seed(self, session):
-        """Hauptmethode - ruft die drei Seed-Schritte nacheinander auf."""
-        admin = self.seed_user(session)
-        locations = self.seed_locations(session, admin)
-        self.seed_alerts(session, locations)
+        """Hauptmethode: legt User, Standorte und Alerts an."""
+        # 1. Demo-User
+        admin = self._create_demo_user(session)
 
-    def seed_user(self, session):
-        """Legt den Admin-User an, falls noch keiner existiert."""
+        # 2. Demo-Standorte (mit Grenzwerten)
+        locations = self._create_demo_locations(session, admin.id)
+
+        # 3. Demo-Alerts
+        self._create_demo_alerts(session, locations)
+
+    def _create_demo_user(self, session):
+        """Legt den 'admin'-User an, falls noch keiner existiert."""
         existing = session.exec(select(User)).first()
         if existing is not None:
             return existing
 
-        admin = User(
-            username="admin",
-            password="admin123",
-            company="Müller Bau AG",
-        )
+        admin = User(username="admin", password="admin123", company="Müller Bau AG")
         session.add(admin)
         session.commit()
         session.refresh(admin)
         return admin
 
-    def seed_locations(self, session, admin):
-        """Legt die drei Demo-Standorte mit ihren Grenzwerten an."""
-        # Falls schon welche existieren, einfach zurückgeben
+    def _create_demo_locations(self, session, user_id):
+        """Legt die Demo-Standorte mit ihren Grenzwerten an."""
+        # Falls schon Standorte existieren, einfach diese zurückgeben
         existing = list(session.exec(select(Location)).all())
         if existing:
             return existing
 
-        locations = []
-        for data in DEMO_LOCATIONS:
-            # Eine neue Location erstellen
-            loc = Location(
-                name=data["name"],
-                latitude=data["latitude"],
-                longitude=data["longitude"],
-                branch=data["branch"],
-                company=data["company"],
-                user_id=admin.id,
+        created_locations = []
+        for location_data in DEMO_LOCATIONS:
+            # Standort erstellen
+            location = Location(
+                name=location_data["name"],
+                latitude=location_data["latitude"],
+                longitude=location_data["longitude"],
+                branch=location_data["branch"],
+                company=location_data["company"],
+                user_id=user_id,
             )
-            # Grenzwerte zu dieser Location hinzufügen
-            for t_data in data["thresholds"]:
-                threshold = WeatherThreshold(
-                    parameter=t_data["parameter"],
-                    operator=t_data["operator"],
-                    value=t_data["value"],
-                    label=t_data["label"],
-                    severity=t_data["severity"],
-                )
-                loc.thresholds.append(threshold)
-            session.add(loc)
-            locations.append(loc)
+            # Grenzwerte hinzufügen
+            for t in location_data["thresholds"]:
+                location.thresholds.append(WeatherThreshold(
+                    parameter=t["parameter"],
+                    operator=t["operator"],
+                    value=t["value"],
+                    label=t["label"],
+                    severity=t["severity"],
+                ))
+            session.add(location)
+            created_locations.append(location)
 
         session.commit()
-        return locations
+        return created_locations
 
-    def seed_alerts(self, session, locations):
-        """Erzeugt 10 historische Alerts für die letzten Tage."""
+    def _create_demo_alerts(self, session, locations):
+        """Legt ein paar historische Alerts an, damit das Dashboard nicht leer ist."""
         existing = session.exec(select(Alert)).first()
         if existing is not None:
             return
@@ -131,8 +134,9 @@ class WeatherSeeder:
         now = datetime.now()
         for loc_index, label, severity, param, actual, threshold, days_ago, hour in DEMO_ALERTS:
             location = locations[loc_index]
-            # Zeitpunkt berechnen: "vor X Tagen, um Y Uhr"
-            time_point = now - timedelta(days=days_ago, hours=now.hour - hour)
+            # Zeitpunkt zusammenbauen: heute - days_ago, dann auf 'hour' setzen
+            forecast_time = now - timedelta(days=days_ago, hours=now.hour - hour)
+
             alert = Alert(
                 location_id=location.id,
                 threshold_label=label,
@@ -140,8 +144,9 @@ class WeatherSeeder:
                 parameter=param,
                 actual_value=actual,
                 threshold_value=threshold,
-                forecast_time=time_point,
-                created_at=time_point,
+                forecast_time=forecast_time,
+                created_at=forecast_time,
             )
             session.add(alert)
+
         session.commit()

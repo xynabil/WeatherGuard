@@ -1,12 +1,13 @@
-"""DAO-Klassen (Data Access Object).
+"""DAOs - Data Access Objects.
 
-Eine DAO-Klasse fasst alle Datenbank-Operationen für EINE Tabelle zusammen:
-- UserDAO     → arbeitet mit der users-Tabelle
-- LocationDAO → arbeitet mit der locations-Tabelle
-- AlertDAO    → arbeitet mit der alerts-Tabelle
+Eine DAO-Klasse kümmert sich um eine Tabelle und stellt einfache Methoden
+zum Lesen, Hinzufügen und Löschen bereit. Der Rest der App ruft nur
+diese Methoden auf - so muss man nirgends sonst SQL/SQLModel-Code schreiben.
 
-So muss der Rest der App nie SQL schreiben - er ruft einfach
-z.B. user_dao.get_by_username("admin") oder location_dao.add(loc) auf.
+Wir haben drei DAOs:
+- UserDAO     - für Benutzer-Konten
+- LocationDAO - für Standorte (mit ihren Grenzwerten)
+- AlertDAO    - für Wetter-Warnungen
 """
 
 from sqlmodel import Session, select
@@ -14,14 +15,18 @@ from sqlmodel import Session, select
 from domain.models import User, Location, Alert
 
 
+# ---------------------------------------------------------------------------
+# UserDAO
+# ---------------------------------------------------------------------------
+
 class UserDAO:
-    """Alle Datenbank-Operationen rund um User."""
+    """Verwaltet Benutzer-Konten in der Datenbank."""
 
     def __init__(self, engine):
         self.engine = engine
 
     def get_by_username(self, username):
-        """Sucht einen User per Benutzername. Gibt None zurück, wenn nicht gefunden."""
+        """Sucht einen User anhand des Benutzernamens. None falls nicht gefunden."""
         with Session(self.engine) as session:
             statement = select(User).where(User.username == username)
             return session.exec(statement).first()
@@ -35,7 +40,7 @@ class UserDAO:
             return user
 
     def update_password(self, username, new_password):
-        """Ändert das Passwort eines Users. True bei Erfolg, sonst False."""
+        """Ändert das Passwort. Gibt True zurück, wenn es geklappt hat."""
         with Session(self.engine) as session:
             statement = select(User).where(User.username == username)
             user = session.exec(statement).first()
@@ -47,39 +52,38 @@ class UserDAO:
             return True
 
 
+# ---------------------------------------------------------------------------
+# LocationDAO
+# ---------------------------------------------------------------------------
+
 class LocationDAO:
-    """Alle Datenbank-Operationen rund um Locations."""
+    """Verwaltet Standorte (mit ihren Grenzwerten) in der Datenbank."""
 
     def __init__(self, engine):
         self.engine = engine
 
     def list_all(self, user_id=None):
-        """Gibt alle Locations zurück.
-
-        Wenn user_id gesetzt ist, werden nur die Locations dieses Users zurückgegeben.
-        """
+        """Gibt alle Standorte eines Users zurück (oder alle, wenn user_id=None)."""
         with Session(self.engine) as session:
             statement = select(Location)
             if user_id is not None:
                 statement = statement.where(Location.user_id == user_id)
             locations = list(session.exec(statement).all())
-
-            # Wichtig: Grenzwerte mitladen, solange die Session noch offen ist.
-            # Sonst sind sie nach session.close() nicht mehr zugreifbar.
+            # Wichtig: thresholds laden, solange Session noch offen ist
             for loc in locations:
                 _ = loc.thresholds
             return locations
 
     def get_by_id(self, location_id):
-        """Lädt eine einzelne Location anhand ihrer ID."""
+        """Sucht einen Standort anhand seiner ID."""
         with Session(self.engine) as session:
-            loc = session.get(Location, location_id)
-            if loc is not None:
-                _ = loc.thresholds   # Grenzwerte mitladen
-            return loc
+            location = session.get(Location, location_id)
+            if location is not None:
+                _ = location.thresholds  # thresholds laden
+            return location
 
     def add(self, location):
-        """Speichert eine neue Location (samt Grenzwerten) in der Datenbank."""
+        """Speichert einen neuen Standort (samt Grenzwerten)."""
         with Session(self.engine) as session:
             session.add(location)
             session.commit()
@@ -87,39 +91,35 @@ class LocationDAO:
             return location
 
     def delete(self, location_id):
-        """Löscht eine Location.
-
-        Wegen cascade="all, delete-orphan" werden auch die zugehörigen
-        Grenzwerte und Alerts automatisch mitgelöscht.
-        """
+        """Löscht einen Standort. Grenzwerte und Alerts werden automatisch mit gelöscht."""
         with Session(self.engine) as session:
-            loc = session.get(Location, location_id)
-            if loc is not None:
-                session.delete(loc)
+            location = session.get(Location, location_id)
+            if location is not None:
+                session.delete(location)
                 session.commit()
 
 
+# ---------------------------------------------------------------------------
+# AlertDAO
+# ---------------------------------------------------------------------------
+
 class AlertDAO:
-    """Alle Datenbank-Operationen rund um Alerts (Wetter-Warnungen)."""
+    """Verwaltet Wetter-Warnungen in der Datenbank."""
 
     def __init__(self, engine):
         self.engine = engine
 
     def list_all(self, limit=200, user_id=None):
-        """Gibt die neuesten Alerts zurück (höchstens 'limit' Stück).
-
-        Wenn user_id gesetzt ist, werden nur Alerts der Locations dieses Users zurückgegeben.
-        """
+        """Gibt die neuesten Alerts eines Users zurück (max. 'limit' Stück)."""
         with Session(self.engine) as session:
+            # Filtern auf Standorte des Users, falls user_id angegeben
             if user_id is not None:
-                # 1. IDs aller Locations des Users sammeln
-                user_locs = session.exec(
-                    select(Location).where(Location.user_id == user_id)
-                ).all()
-                location_ids = [loc.id for loc in user_locs]
+                # Erst die Standort-IDs dieses Users holen
+                loc_statement = select(Location).where(Location.user_id == user_id)
+                user_locations = session.exec(loc_statement).all()
+                location_ids = [loc.id for loc in user_locations]
                 if not location_ids:
                     return []
-                # 2. Nur Alerts dieser Locations holen
                 statement = (
                     select(Alert)
                     .where(Alert.location_id.in_(location_ids))
@@ -127,34 +127,23 @@ class AlertDAO:
                     .limit(limit)
                 )
             else:
-                # Kein User-Filter: einfach die neuesten Alerts holen
-                statement = (
-                    select(Alert)
-                    .order_by(Alert.created_at.desc())
-                    .limit(limit)
-                )
+                statement = select(Alert).order_by(Alert.created_at.desc()).limit(limit)
 
             alerts = list(session.exec(statement).all())
-
-            # Wichtig: Location-Daten mitladen (für Anzeige des Standort-Namens)
-            for a in alerts:
-                _ = a.location
+            # location nachladen, solange Session offen ist
+            for alert in alerts:
+                _ = alert.location
             return alerts
 
     def replace_for_location(self, location_id, new_alerts):
-        """Löscht alle alten Alerts einer Location und speichert die neuen.
-
-        Wird nach jeder Wetter-Analyse aufgerufen, damit immer nur die
-        aktuellen Warnungen in der Datenbank stehen.
-        """
+        """Löscht alle alten Alerts eines Standorts und fügt die neuen ein."""
         with Session(self.engine) as session:
-            # 1. Alte Alerts dieser Location löschen
-            old_alerts = session.exec(
-                select(Alert).where(Alert.location_id == location_id)
-            ).all()
+            # Alte Alerts dieses Standorts löschen
+            statement = select(Alert).where(Alert.location_id == location_id)
+            old_alerts = session.exec(statement).all()
             for old in old_alerts:
                 session.delete(old)
-            # 2. Neue Alerts speichern
-            for new in new_alerts:
-                session.add(new)
+            # Neue Alerts einfügen
+            for new_alert in new_alerts:
+                session.add(new_alert)
             session.commit()
