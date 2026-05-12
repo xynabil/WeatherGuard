@@ -1,94 +1,125 @@
-"""WeatherClient — holt Wetterdaten via Open-Meteo.
+"""WeatherClient - holt Wetterdaten von Open-Meteo.
 
-Open-Meteo ist kostenlos und benötigt keinen API-Key.
-Die Antwort wird intern so umgewandelt, dass RiskAnalyzer
-dieselben Feldnamen (TTT_C, FX_KMH, …) erhält wie vorher.
+Open-Meteo ist eine kostenlose Wetter-API ohne API-Key.
+Doku: https://open-meteo.com/en/docs
 
-API-Dokumentation: https://open-meteo.com/en/docs
+Die Klasse macht zwei Dinge:
+1. Eine HTTP-Anfrage an Open-Meteo schicken (mit Längen-/Breitengrad)
+2. Die Antwort in unser internes Format umwandeln, damit der RiskAnalyzer
+   damit arbeiten kann.
 """
-import requests
+
 from datetime import datetime
+
+import requests
+
+
+# URL der Open-Meteo-API
+BASE_URL = "https://api.open-meteo.com/v1/forecast"
+
+# Wie heissen unsere Parameter bei Open-Meteo?
+# Wir nennen die Temperatur z.B. "TTT_C", die API nennt sie "temperature_2m".
+FIELD_MAP = {
+    "TTT_C":          "temperature_2m",       # Temperatur in °C
+    "FF_KMH":         "windspeed_10m",         # Wind in km/h
+    "FX_KMH":         "windgusts_10m",         # Windböen in km/h
+    "RRR_MM":         "precipitation",         # Niederschlag in mm
+    "FRESHSNOW_CM":   "snowfall",              # Neuschnee in cm
+    "RELHUM_PERCENT": "relativehumidity_2m",   # Luftfeuchtigkeit in %
+}
+
+# Diese Werte dürfen physikalisch nicht negativ sein.
+# Falls die API mal -0.1 mm Regen liefert, runden wir auf 0.
+NON_NEGATIVE = {"FF_KMH", "FX_KMH", "RRR_MM", "FRESHSNOW_CM", "RELHUM_PERCENT"}
 
 
 class WeatherClient:
     """Client für die Open-Meteo Wetter-API."""
 
-    BASE_URL = "https://api.open-meteo.com/v1/forecast"
+    def get_forecast(self, latitude, longitude):
+        """Holt die 3-Tages-Stunden-Prognose für eine Position.
 
-    # Felder, die physikalisch nicht negativ sein können
-    NON_NEGATIVE = {"FF_KMH", "FX_KMH", "RRR_MM", "FRESHSNOW_CM", "RELHUM_PERCENT"}
-
-    # Mapping: interner Feldname → Open-Meteo-Parametername
-    FIELD_MAP = {
-        "TTT_C":          "temperature_2m",
-        "FF_KMH":         "windspeed_10m",
-        "FX_KMH":         "windgusts_10m",
-        "RRR_MM":         "precipitation",
-        "FRESHSNOW_CM":   "snowfall",
-        "RELHUM_PERCENT": "relativehumidity_2m",
-    }
-
-    def get_forecast(self, latitude: float, longitude: float) -> dict:
-        """Holt die stündliche 3-Tages-Prognose für eine Position.
-
-        Gibt ein Dict zurück mit:
-            {"days": [{"date": "...", "hours": [{"TTT_C": ..., "FX_KMH": ..., ...}]}]}
-
-        Dieses Format ist identisch mit dem, das RiskAnalyzer erwartet.
+        Gibt ein Dict zurück mit folgendem Aufbau:
+            {"days": [
+                {"date": "2024-...",
+                 "hours": [
+                    {"TTT_C": 5.2, "FX_KMH": 30.0, ...},
+                    ...
+                 ]},
+                ...
+            ]}
         """
-        ometo_fields = list(self.FIELD_MAP.values())
+        # 1. Welche Felder wollen wir von der API?
+        # Open-Meteo erwartet sie kommagetrennt: "temperature_2m,windspeed_10m,..."
+        open_meteo_fields = list(FIELD_MAP.values())
 
+        # 2. HTTP-Anfrage an die API schicken
         response = requests.get(
-            self.BASE_URL,
+            BASE_URL,
             params={
-                "latitude":       latitude,
-                "longitude":      longitude,
-                "hourly":         ",".join(ometo_fields),
-                "forecast_days":  3,
-                "timezone":       "Europe/Zurich",
-                "wind_speed_unit": "kmh",   # km/h direkt, kein Umrechnen nötig
+                "latitude":        latitude,
+                "longitude":       longitude,
+                "hourly":          ",".join(open_meteo_fields),
+                "forecast_days":   3,
+                "timezone":        "Europe/Zurich",
+                "wind_speed_unit": "kmh",
             },
             timeout=10,
         )
-        response.raise_for_status()
-        return self._convert(response.json())
+        response.raise_for_status()    # Fehler werfen, falls die API nicht antwortet
+        raw_data = response.json()
 
-    def _convert(self, raw: dict) -> dict:
-        """Wandelt Open-Meteo-Antwort ins interne Format um.
+        # 3. Antwort in unser Format umwandeln und zurückgeben
+        return self.convert(raw_data)
 
-        Open-Meteo liefert parallele Arrays (eine Liste pro Feld).
-        Wir formen diese in Tage → Stunden um.
+    def convert(self, raw_data):
+        """Wandelt die Open-Meteo-Antwort in unser internes Format um.
+
+        Open-Meteo liefert parallele Listen (eine Liste pro Feld):
+            time:          ["2024-01-01T00:00", "2024-01-01T01:00", ...]
+            temperature_2m:[2.1, 1.8, ...]
+            windspeed_10m: [15.0, 18.0, ...]
+
+        Wir bauen daraus eine Liste von Tagen, jeder Tag mit einer Liste von Stunden.
         """
-        hourly = raw.get("hourly", {})
-        times  = hourly.get("time", [])
+        hourly = raw_data.get("hourly", {})
+        times = hourly.get("time", [])
 
-        # Umgekehrtes Mapping: Open-Meteo-Name → interner Name
-        reverse_map = {v: k for k, v in self.FIELD_MAP.items()}
+        # Umgekehrte Zuordnung: Open-Meteo-Name → unser Name
+        reverse_map = {}
+        for our_name, open_meteo_name in FIELD_MAP.items():
+            reverse_map[open_meteo_name] = our_name
 
-        # Stunden-Dicts bauen
-        days: dict = {}
-        for i, ts_str in enumerate(times):
-            dt   = datetime.fromisoformat(ts_str)
-            date = dt.date()
-            if date not in days:
-                days[date] = []
+        # Stunden nach Tagen gruppieren
+        days_dict = {}
+        for i, timestamp_str in enumerate(times):
+            timestamp = datetime.fromisoformat(timestamp_str)
+            date = timestamp.date()
 
-            hour_data = {"date_time": ts_str}
-            for ometo_key, internal_key in reverse_map.items():
-                values = hourly.get(ometo_key, [])
-                val = values[i] if i < len(values) else None
-                if val is not None and internal_key in self.NON_NEGATIVE:
-                    val = max(0.0, val)
-                hour_data[internal_key] = val
+            # Neuen Tag anlegen, wenn nötig
+            if date not in days_dict:
+                days_dict[date] = []
 
-            days[date].append(hour_data)
+            # Daten für diese Stunde zusammenstellen
+            hour_data = {"date_time": timestamp_str}
+            for open_meteo_name, our_name in reverse_map.items():
+                values = hourly.get(open_meteo_name, [])
+                if i < len(values):
+                    value = values[i]
+                else:
+                    value = None
+                # Negative Werte abfangen (z.B. -0.1 mm Regen → 0.0)
+                if value is not None and our_name in NON_NEGATIVE:
+                    value = max(0.0, value)
+                hour_data[our_name] = value
 
-        return {
-            "days": [
-                {"date": str(date), "hours": hours}
-                for date, hours in sorted(days.items())
-            ]
-        }
+            days_dict[date].append(hour_data)
 
-    def __repr__(self) -> str:
-        return "<WeatherClient(api=Open-Meteo)>"
+        # In eine sortierte Liste umwandeln (Datum aufsteigend)
+        result_days = []
+        for date in sorted(days_dict.keys()):
+            result_days.append({
+                "date":  str(date),
+                "hours": days_dict[date],
+            })
+        return {"days": result_days}
