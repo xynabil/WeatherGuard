@@ -1,37 +1,38 @@
 """Datenbank-Verbindung.
 
-Die Klasse Database kümmert sich um drei Dinge:
-1. Verbindung zur SQLite-Datei (engine)
-2. Tabellen anlegen (create_tables)
-3. Neue Datenbank-Session öffnen (new_session)
+Diese Klasse kümmert sich um die Verbindung zur SQLite-Datenbank
+und erstellt die Tabellen, falls sie noch nicht existieren.
 """
 
 from sqlmodel import SQLModel, Session, create_engine
 
 
 class Database:
-    """Wrappt die SQLite-Datenbank in eine einfache Klasse."""
+    """Verwaltet die Verbindung zur SQLite-Datenbank."""
 
     def __init__(self, database_url="sqlite:///weatherguard.db"):
-        # check_same_thread=False brauchen wir, weil NiceGUI mehrere Threads nutzt.
-        # Sonst gäbe es Fehler beim parallelen Zugriff auf die Datenbank.
+        # check_same_thread=False ist nötig, weil NiceGUI mehrere Threads nutzt
         self.engine = create_engine(
             database_url,
+            echo=False,
             connect_args={"check_same_thread": False},
         )
 
-    def create_tables(self):
-        """Erstellt alle Tabellen in der Datenbank (falls sie noch nicht existieren)."""
-        # Modelle importieren, damit SQLModel sie kennt, bevor wir create_all() aufrufen
-        from domain.models import User, Location, WeatherThreshold, Alert  # noqa: F401
+    def init_schema(self):
+        """Erstellt alle Tabellen (macht nichts, falls sie schon existieren)."""
+        # Wir importieren die Modelle hier, damit SQLModel sie kennt,
+        # bevor wir create_all() aufrufen.
+        from domain.models import User, Location, WeatherThreshold, Alert
         SQLModel.metadata.create_all(self.engine)
 
-    def new_session(self):
-        """Öffnet eine neue Datenbank-Session.
+    def get_session(self):
+        """Gibt eine neue Datenbank-Session zurück.
 
-        Der Aufrufer muss die Session danach selbst mit session.close() schliessen,
-        oder ein with-Block verwenden:
-            with Session(db.engine) as session:
-                ...
+        Wir nutzen die Session immer mit 'with', damit sie sich
+        automatisch wieder schliesst:
+
+            with database.get_session() as session:
+                session.add(...)
+                session.commit()
         """
         return Session(self.engine)

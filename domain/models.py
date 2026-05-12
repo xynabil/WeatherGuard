@@ -1,84 +1,86 @@
-"""Datenbank-Modelle.
+"""Datenbank-Modelle (Tabellen).
 
-Jede Klasse hier entspricht genau einer Tabelle in der SQLite-Datenbank.
-SQLModel kümmert sich um die Übersetzung Python-Objekt ↔ SQL-Zeile.
+Wir definieren hier vier Tabellen mit SQLModel:
+- User:             Login-Konten
+- Location:         Überwachte Standorte (Baustelle, Event, Depot, ...)
+- WeatherThreshold: Grenzwerte pro Standort (z.B. "Wind > 60 km/h = Sturm")
+- Alert:            Warnungen, die in der DB gespeichert werden
 
-Die vier Tabellen:
-- User              → Benutzerkonten (Login)
-- Location          → überwachte Standorte (Baustellen, Events, Depots)
-- WeatherThreshold  → Grenzwerte pro Location ("Wind > 60 km/h")
-- Alert             → ausgelöste Wetter-Warnungen
+SQLModel ist eine Bibliothek, die Python-Klassen automatisch in DB-Tabellen umwandelt.
+Jede Klasse hier entspricht einer Tabelle.
 """
 
 from datetime import datetime
+from typing import List, Optional
 
 from sqlmodel import SQLModel, Field, Relationship
 
 
 class User(SQLModel, table=True):
-    """Ein Benutzerkonto.
+    """Ein Login-Konto (Benutzer der App)."""
 
-    Hinweis: Das Passwort wird als Klartext gespeichert. Das ist nur
-    für dieses Schulprojekt OK - in einer echten App würde man es hashen.
-    """
     __tablename__ = "users"
 
-    id: int = Field(default=None, primary_key=True)
-    username: str
-    password: str
-    company: str = ""
+    id: Optional[int] = Field(default=None, primary_key=True)
+    username: str = Field(max_length=50)
+    password: str = Field(max_length=100)  # Klartext - reicht für ein Schulprojekt
+    company: str = Field(max_length=100, default="")
 
     def check_password(self, password):
-        """Prüft, ob das eingegebene Passwort stimmt."""
+        """Prüft ob das eingegebene Passwort stimmt."""
         return self.password == password
 
 
 class Location(SQLModel, table=True):
-    """Ein überwachter Standort (Baustelle, Event-Location, Depot ...)."""
+    """Ein überwachter Standort (z.B. eine Baustelle)."""
+
     __tablename__ = "locations"
 
-    id: int = Field(default=None, primary_key=True)
-    user_id: int = Field(foreign_key="users.id")   # gehört zu welchem User?
-    name: str
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="users.id")  # Wem gehört der Standort?
+    name: str = Field(max_length=100)
     latitude: float
     longitude: float
-    branch: str       # "Bau", "Event" oder "Lieferdienst"
-    company: str
+    branch: str = Field(max_length=50)    # "Bau", "Event", "Lieferdienst"
+    company: str = Field(max_length=100)
 
-    # Beziehung 1:n - eine Location hat mehrere Grenzwerte
-    thresholds: list["WeatherThreshold"] = Relationship(
+    # Beziehung zu Grenzwerten: ein Standort hat mehrere Grenzwerte
+    thresholds: List["WeatherThreshold"] = Relationship(
         back_populates="location",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    # Beziehung 1:n - eine Location hat mehrere Alerts
-    alerts: list["Alert"] = Relationship(
+    # Beziehung zu Alerts: ein Standort hat mehrere Alerts
+    alerts: List["Alert"] = Relationship(
         back_populates="location",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
 
 
 class WeatherThreshold(SQLModel, table=True):
-    """Ein Grenzwert für eine Location.
+    """Ein Grenzwert für einen Standort.
 
     Beispiele:
-        parameter="TTT_C",  operator="<", value=5.0   → warnt bei Frost
-        parameter="FX_KMH", operator=">", value=60.0  → warnt bei Sturm
+        - parameter="TTT_C",  operator="<", value=5.0   → Frost-Warnung
+        - parameter="FX_KMH", operator=">", value=60.0  → Sturm-Warnung
     """
+
     __tablename__ = "thresholds"
 
-    id: int = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     location_id: int = Field(foreign_key="locations.id")
-    parameter: str            # z.B. "TTT_C" (Temperatur), "FX_KMH" (Windböen)
-    operator: str             # "<", ">", "<=" oder ">="
-    value: float              # der eigentliche Grenzwert (z.B. 60.0)
-    label: str                # menschenlesbarer Name (z.B. "Sturm (Kran)")
-    severity: str = "warning" # "info", "warning" oder "critical"
+    parameter: str = Field(max_length=30)     # z.B. "TTT_C", "FX_KMH", "RRR_MM"
+    operator: str = Field(max_length=5)       # "<", ">", "<=", ">="
+    value: float                              # der Grenzwert selbst
+    label: str = Field(max_length=100)        # Anzeige-Name, z.B. "Sturm"
+    severity: str = Field(default="warning", max_length=20)  # "warning" oder "critical"
 
-    # Rückwärts-Beziehung: jeder Grenzwert kennt seine Location
-    location: "Location" = Relationship(back_populates="thresholds")
+    location: Optional["Location"] = Relationship(back_populates="thresholds")
 
     def is_exceeded(self, actual_value):
-        """Prüft, ob der gemessene Wert den Grenzwert überschreitet."""
+        """Prüft, ob der gemessene Wert den Grenzwert überschreitet.
+
+        Beispiel: Grenzwert "TTT_C < 5", actual_value = 2.0 → True (Frost!)
+        """
         if self.operator == "<":
             return actual_value < self.value
         if self.operator == ">":
@@ -91,18 +93,18 @@ class WeatherThreshold(SQLModel, table=True):
 
 
 class Alert(SQLModel, table=True):
-    """Eine ausgelöste Wetter-Warnung, gehört zu einer Location."""
+    """Eine ausgelöste Wetter-Warnung."""
+
     __tablename__ = "alerts"
 
-    id: int = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, primary_key=True)
     location_id: int = Field(foreign_key="locations.id")
-    threshold_label: str       # z.B. "Sturm (Kranarbeiten)"
-    severity: str              # "warning" oder "critical"
-    parameter: str             # welcher Parameter ("FX_KMH" usw.)
-    actual_value: float        # vorhergesagter Wert (z.B. 72.0 km/h)
-    threshold_value: float     # der überschrittene Grenzwert (z.B. 60.0)
-    forecast_time: datetime    # wann tritt der schlimme Wert auf?
+    threshold_label: str = Field(max_length=100)     # z.B. "Sturm (Kranarbeiten)"
+    severity: str = Field(max_length=20)             # "warning" oder "critical"
+    parameter: str = Field(max_length=30)            # welcher Wetter-Wert
+    actual_value: float                              # tatsächlich gemessener Wert
+    threshold_value: float                           # der überschrittene Grenzwert
+    forecast_time: datetime                          # für welchen Zeitpunkt gilt die Warnung
     created_at: datetime = Field(default_factory=datetime.now)
 
-    # Rückwärts-Beziehung: jeder Alert kennt seine Location
-    location: "Location" = Relationship(back_populates="alerts")
+    location: Optional["Location"] = Relationship(back_populates="alerts")

@@ -1,10 +1,4 @@
-"""Alternativer Startpunkt.
-
-Erlaubt den Aufruf:
-    python -m WeatherGuard
-
-Macht genau das Gleiche wie main.py.
-"""
+"""Alternativer Start: python -m weatherguard"""
 
 from application import WeatherGuardApplication
 

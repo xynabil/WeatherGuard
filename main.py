@@ -1,13 +1,8 @@
-"""Startpunkt der App.
-
-Aufruf:
-    python main.py
-
-Öffnet danach im Browser: http://localhost:8080
-"""
+"""Start-Skript für die App. Aufruf: python main.py"""
 
 from application import WeatherGuardApplication
 
 
-app = WeatherGuardApplication()
-app.run()
+if __name__ == "__main__":
+    app = WeatherGuardApplication()
+    app.run()

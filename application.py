@@ -1,18 +1,22 @@
-"""WeatherGuardApplication - die zentrale Klasse, die alles zusammenbaut.
+"""WeatherGuardApplication - die Haupt-Klasse, die alles zusammensteckt.
 
-Die Klasse erzeugt alle Objekte in der richtigen Reihenfolge
-(Datenbank → DAOs → Services → Controller → Pages) und startet danach
-den NiceGUI-Webserver. Aufbau wie im Pizza-Referenzprojekt.
+Sie tut der Reihe nach:
+1. Datenbank-Verbindung aufbauen und Tabellen erstellen
+2. Demo-Daten einfügen (nur beim ersten Start)
+3. DAOs erstellen (für DB-Zugriff)
+4. Services erstellen (Wetter-API)
+5. Controllers erstellen (Logik zwischen UI und DB)
+6. Pages erstellen (die eigentliche Web-UI)
+7. Den Web-Server starten
 """
 
 from nicegui import ui
-from sqlmodel import Session, select
+from sqlmodel import select
 
 from config import DATABASE_URL
 from data_access.db import Database
 from data_access.dao import UserDAO, LocationDAO, AlertDAO
 from data_access.seed import WeatherSeeder
-from domain.models import User
 from services.weather_client import WeatherClient
 from ui.controllers import (
     AuthController,
@@ -21,56 +25,58 @@ from ui.controllers import (
     HistoryController,
 )
 from ui.pages import Pages
+from domain.models import User
 
 
 class WeatherGuardApplication:
-    """Verbindet alle Bausteine und startet die App."""
+    """Die Haupt-App: erstellt alle Komponenten und startet den Server."""
 
-    def __init__(self):
-        # 1. Datenbank vorbereiten (Tabellen anlegen, falls noch nicht da)
-        self.db = Database(DATABASE_URL)
-        self.db.create_tables()
+    def __init__(self, database_url=DATABASE_URL):
+        # 1. Datenbank
+        self.database = Database(database_url)
+        self.database.init_schema()
 
-        # 2. Demo-Daten einfügen, wenn die Datenbank leer ist
-        session = Session(self.db.engine)
-        first_user = session.exec(select(User)).first()
-        if first_user is None:
-            seeder = WeatherSeeder()
-            seeder.seed(session)
-        session.close()
+        # 2. Demo-Daten einfügen, wenn DB leer ist
+        self._seed_if_empty()
 
-        # 3. DAOs (Data Access Objects - kümmern sich um die Datenbank)
-        self.user_dao = UserDAO(self.db.engine)
-        self.location_dao = LocationDAO(self.db.engine)
-        self.alert_dao = AlertDAO(self.db.engine)
+        # 3. DAOs (für Datenbank-Zugriff)
+        user_dao = UserDAO(self.database.engine)
+        location_dao = LocationDAO(self.database.engine)
+        alert_dao = AlertDAO(self.database.engine)
 
-        # 4. Services
-        self.weather_client = WeatherClient()
+        # 4. Services (für externe Daten)
+        weather_client = WeatherClient()
 
-        # 5. Controller (verbinden UI mit DAOs/Services)
-        self.auth_controller = AuthController(self.user_dao)
-        self.location_controller = LocationController(self.location_dao)
-        self.alert_controller = AlertController(
-            self.location_dao, self.alert_dao, self.weather_client,
-        )
-        self.history_controller = HistoryController(self.alert_dao)
+        # 5. Controllers (Logik zwischen UI und DB)
+        auth_controller = AuthController(user_dao)
+        location_controller = LocationController(location_dao)
+        alert_controller = AlertController(location_dao, alert_dao, weather_client)
+        history_controller = HistoryController(alert_dao)
 
-        # 6. Pages (alle Seiten der Web-App)
+        # 6. Pages (die Web-UI selbst)
         self.pages = Pages(
-            auth_controller=self.auth_controller,
-            location_controller=self.location_controller,
-            alert_controller=self.alert_controller,
-            history_controller=self.history_controller,
+            auth_controller=auth_controller,
+            location_controller=location_controller,
+            alert_controller=alert_controller,
+            history_controller=history_controller,
         )
 
-    def run(self):
-        """Registriert alle Routen und startet den NiceGUI-Server."""
+    def _seed_if_empty(self):
+        """Fügt Demo-Daten ein, wenn noch keine User in der DB sind."""
+        with self.database.get_session() as session:
+            existing_user = session.exec(select(User)).first()
+            if existing_user is None:
+                seeder = WeatherSeeder()
+                seeder.seed(session)
+
+    def run(self, host="0.0.0.0", port=8080, reload=False):
+        """Registriert die Routen und startet den NiceGUI-Server."""
         self.pages.register()
         ui.run(
             title="WeatherGuard",
-            host="0.0.0.0",
-            port=8080,
+            host=host,
+            port=port,
+            reload=reload,
             dark=True,
             storage_secret="weatherguard-secret",
-            reload=False,
         )
