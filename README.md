@@ -36,89 +36,89 @@ classDiagram
   class User {
     +int id
     +str username
-    +str email
-    +str password_hash
+    +str password
     +str company
-    +datetime created_at
-    +check_password(plain: str) bool
+    +check_password(password) bool
   }
 
   class Location {
     +int id
-    +str name
     +int user_id
+    +str name
     +float latitude
     +float longitude
-    +str location_type
-    +bool is_active
+    +str branch
+    +str company
   }
 
   class WeatherThreshold {
     +int id
     +int location_id
-    +str condition
+    +str parameter
     +str operator
     +float value
+    +str label
     +str severity
-    +str description
-    +is_exceeded(value: float) bool
+    +is_exceeded(actual_value) bool
   }
 
   class Alert {
     +int id
     +int location_id
-    +int threshold_id
-    +str alert_type
-    +str message
+    +str threshold_label
     +str severity
-    +datetime triggered_at
-    +bool is_read
+    +str parameter
+    +float actual_value
+    +float threshold_value
+    +datetime forecast_time
+    +datetime created_at
   }
 
-  class WeatherForecast {
-    +float temperature
-    +float wind_speed
-    +float precipitation
-    +str symbol_code
-    +str location
-    +datetime fetched_at
-    +str() str
-    +repr() str
-  }
-
-  class SRFWeatherService {
-    -str _client_id
-    -str _client_secret
-    -str _token
-    +get_forecast(lat: float, lon: float) WeatherForecast
-    -_fetch_token() str
-    -_parse_response() WeatherForecast
+  class WeatherClient {
+    +get_forecast(lat, lon) dict
   }
 
   class RiskAnalyzer {
-    -SRFWeatherService _weather_service
-    +analyze(location: Location) list~Alert~
-    +analyze_all() list~Alert~
-    -_check_threshold(forecast: WeatherForecast, t: WeatherThreshold) Alert
-    -_is_duplicate(alert: Alert) bool
+    -WeatherClient weather_client
+    +analyze(location) list~Alert~
   }
 
-  class AlertStatistics {
-    -list~Alert~ _alerts
-    +total() int
-    +by_type() dict
-    +by_severity() dict
-    +by_day() dict
+  class AuthController {
+    -UserDAO user_dao
+    +verify_login(username, password) User
+    +register(username, password, confirm, company) str
+    +change_password(username, current, new) str
+  }
+
+  class LocationController {
+    -LocationDAO location_dao
+    +list_locations(user_id) list~Location~
+    +add_location(...) Location
+    +delete_location(location_id)
+  }
+
+  class AlertController {
+    -LocationDAO location_dao
+    -AlertDAO alert_dao
+    -WeatherClient weather_client
+    -RiskAnalyzer risk_analyzer
+    +run_analysis(location_id) list~Alert~
+    +list_alerts(limit, user_id) list~Alert~
+  }
+
+  class HistoryController {
+    -AlertDAO alert_dao
+    +get_kpis(user_id) dict
+    +get_alerts_per_day(user_id) list
+    +get_alerts_by_type(user_id) list
   }
 
   User "1" --> "0..*" Location : owns
   Location "1" --> "0..*" WeatherThreshold : has
   Location "1" --> "0..*" Alert : triggers
-  WeatherThreshold "1" --> "0..*" Alert : generates
-  RiskAnalyzer --> SRFWeatherService : uses
+  RiskAnalyzer --> WeatherClient : uses
   RiskAnalyzer --> Alert : creates
-  SRFWeatherService --> WeatherForecast : returns
-  AlertStatistics --> Alert : aggregates
+  AlertController --> RiskAnalyzer : uses
 ```
 
 ---
@@ -130,10 +130,8 @@ erDiagram
   USER {
     int id PK
     string username
-    string email
-    string password_hash
+    string password
     string company
-    datetime created_at
   }
 
   LOCATION {
@@ -142,37 +140,36 @@ erDiagram
     string name
     float latitude
     float longitude
-    string location_type
-    bool is_active
+    string branch
+    string company
   }
 
   WEATHER_THRESHOLD {
     int id PK
     int location_id FK
-    string condition
+    string parameter
     string operator
     float value
+    string label
     string severity
-    string description
   }
 
   ALERT {
     int id PK
     int location_id FK
-    int threshold_id FK
-    string alert_type
-    string message
+    string threshold_label
     string severity
-    datetime triggered_at
-    bool is_read
+    string parameter
+    float actual_value
+    float threshold_value
+    datetime forecast_time
+    datetime created_at
   }
 
   USER ||--o{ LOCATION : "owns"
   LOCATION ||--o{ WEATHER_THRESHOLD : "has"
   LOCATION ||--o{ ALERT : "triggers"
-  WEATHER_THRESHOLD ||--o{ ALERT : "generates"
 ```
-
 
 ---
 
@@ -184,12 +181,18 @@ NiceGUI Frontend (Browser)
         ├── Leaflet.js Map  →  user picks coordinates by clicking or searching
         │
         ▼
-Login / Session (app.storage.user)
+Pages (ui/pages.py) — five routes: /, /app, /dashboard, /reports, /settings
         │
         ▼
-RiskAnalyzer (Business Logic)
-   ├── WeatherClient  →  Open-Meteo API (free, no key required)
-   └── DB Session     →  SQLite
+Controllers (ui/controllers.py) — Auth, Location, Alert, History
+        │
+        ├── Services (services/) → WeatherClient, RiskAnalyzer → Open-Meteo API
+        │
+        ▼
+DAOs (data_access/dao.py) — UserDAO, LocationDAO, AlertDAO
+        │
+        ▼
+SQLite Database (via SQLModel ORM)
         ├── User
         ├── Location
         ├── WeatherThreshold
@@ -210,26 +213,31 @@ RiskAnalyzer (Business Logic)
 
 ## Project Structure
 
-The structure mirrors the pizza reference project exactly.
-
 ```
 WeatherGuard/
 ├── main.py                    # Entrypoint — python main.py
-├── application.py             # WeatherGuardApplication (composition root)
-├── data_access/
-│   ├── db.py                  # Database class (engine, schema init, sessions)
-│   ├── dao.py                 # UserDAO, LocationDAO, AlertDAO (CRUD)
-│   └── seed.py                # WeatherSeeder (demo data on first run)
+├── __main__.py                # Alternative entrypoint — python -m weatherguard
+├── application.py             # WeatherGuardApplication — wires everything together
+├── config.py                  # Settings (DATABASE_URL)
+├── requirements.txt
+├── weatherguard.db            # SQLite database (auto-seeded on first run)
+│
 ├── domain/
-│   └── models.py              # All ORM models: User, Location, WeatherThreshold, Alert
+│   └── models.py              # SQLModel tables: User, Location, WeatherThreshold, Alert
+│
+├── data_access/
+│   ├── db.py                  # Database class (engine + sessions)
+│   ├── dao.py                 # UserDAO, LocationDAO, AlertDAO — all CRUD
+│   └── seed.py                # WeatherSeeder — demo data on first run
+│
 ├── services/
-│   ├── weather_client.py      # Open-Meteo API → internal forecast format
-│   └── risk_analyzer.py       # Threshold checks, deduplication, alert creation
-├── ui/
-│   ├── controllers.py         # AuthController, LocationController, AlertController, HistoryController
-│   └── pages.py               # Pages class — registers all NiceGUI routes + UI code
-├── weatherguard.db            # SQLite database (pre-seeded with demo data)
-└── requirements.txt
+│   ├── weather_client.py      # WeatherClient — Open-Meteo API wrapper
+│   └── risk_analyzer.py       # RiskAnalyzer — threshold checks & alert creation
+│
+└── ui/
+    ├── controllers.py         # AuthController, LocationController, AlertController, HistoryController
+    ├── dashboard_refresh.py   # DashboardRefresh — auto-refresh every 3 minutes
+    └── pages.py               # Pages class — registers all NiceGUI routes
 ```
 
 ---
@@ -238,18 +246,18 @@ WeatherGuard/
 
 | Concept | Where |
 |---------|-------|
-| **Classes & Objects** | `User`, `Location`, `WeatherThreshold`, `Alert`, `WeatherClient`, `RiskAnalyzer` |
-| **Encapsulation** | `threshold.is_exceeded(value)`, `user.check_password(pw)` hide internal logic |
-| **Relationships / Associations** | `Location` has a list of `WeatherThreshold`, each `Alert` belongs to a `Location` |
-| **Separation of concerns** | Models (data), Services (logic), UI (presentation) are in separate modules |
-| **DRY principle** | `_sidebar()` helper called from every page in `pages.py` — defined once, reused everywhere |
+| **Classes & Objects** | `User`, `Location`, `WeatherThreshold`, `Alert`, `WeatherClient`, `RiskAnalyzer`, all DAOs and Controllers |
+| **Encapsulation** | `threshold.is_exceeded(value)` and `user.check_password(pw)` hide the comparison logic inside the class |
+| **Relationships / Associations** | A `Location` has many `WeatherThreshold`s, each `Alert` belongs to one `Location` |
+| **Separation of concerns** | `domain/` (data), `data_access/` (DB), `services/` (logic), `ui/` (presentation) are in separate folders |
+| **DRY (don't repeat yourself)** | The sidebar, KPI row, and chart helpers are defined once in `pages.py` and reused across all pages |
 
 ---
 
 ## Setup
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/WeatherGuard.git
+git clone https://github.com/xynabil/WeatherGuard.git
 cd WeatherGuard
 pip install -r requirements.txt
 python main.py
@@ -272,10 +280,10 @@ The database (`weatherguard.db`) is included in the repo and already contains de
 
 The seeded database includes:
 
-| Location | Type | Example Thresholds |
+| Location | Branch | Example Thresholds |
 |----------|------|--------------------|
-| Baustelle Zürich HB | Construction site | Wind > 50 km/h, Frost < 2°C |
-| Open-Air Luzern | Event | Rain > 5 mm, Wind gusts > 60 km/h |
-| Lieferroute Basel | Delivery | Snow > 2 cm, Ice risk < 1°C |
+| Baustelle Zürich HB | Bau | Frost < 5°C, Sturm > 60 km/h, Starkregen > 10 mm |
+| Open-Air Bühne Olten | Event | Sturm > 40 km/h, Regen > 5 mm, Frost < 0°C |
+| Depot Basel Süd | Lieferdienst | Schneefall > 5 cm, Orkan > 70 km/h, Extremkälte < -5°C |
 
 10 historical alerts are spread across the last 7 days so charts and history are visible immediately after cloning.
