@@ -1,51 +1,59 @@
-"""Application composition root.
+"""WeatherGuardApplication - die Haupt-Klasse, die alles zusammensteckt.
 
-WeatherGuardApplication wires all dependencies together and starts the server.
-Design pattern: same as PizzaApplication in the pizza reference project.
+Sie tut der Reihe nach:
+1. Datenbank-Verbindung aufbauen und Tabellen erstellen
+2. Demo-Daten einfügen (nur beim ersten Start)
+3. DAOs erstellen (für DB-Zugriff)
+4. Services erstellen (Wetter-API)
+5. Controllers erstellen (Logik zwischen UI und DB)
+6. Pages erstellen (die eigentliche Web-UI)
+7. Den Web-Server starten
 """
 
-from __future__ import annotations
-
 from nicegui import ui
+from sqlmodel import select
 
+from config import DATABASE_URL
 from data_access.db import Database
 from data_access.dao import UserDAO, LocationDAO, AlertDAO
 from data_access.seed import WeatherSeeder
 from services.weather_client import WeatherClient
-from ui.controllers import AuthController, LocationController, AlertController, HistoryController
+from ui.controllers import (
+    AuthController,
+    LocationController,
+    AlertController,
+    HistoryController,
+)
 from ui.pages import Pages
+from domain.models import User
 
 
 class WeatherGuardApplication:
-    """Composition root — creates and connects all objects, then runs the app."""
+    """Die Haupt-App: erstellt alle Komponenten und startet den Server."""
 
-    def __init__(self, database_url: str = None) -> None:
-        # 1. Database
-        self.db = Database(database_url)
-        self.db.init_schema()
+    def __init__(self, database_url=DATABASE_URL):
+        # 1. Datenbank
+        self.database = Database(database_url)
+        self.database.init_schema()
 
-        # Seed demo data on first run (only if tables are empty)
-        with self.db.session_scope() as session:
-            from sqlmodel import select
-            from domain.models import User
-            if not session.exec(select(User)).first():
-                WeatherSeeder().seed(session)
+        # 2. Demo-Daten einfügen, wenn DB leer ist
+        self._seed_if_empty()
 
-        # 2. DAOs
-        user_dao     = UserDAO(self.db.engine)
-        location_dao = LocationDAO(self.db.engine)
-        alert_dao    = AlertDAO(self.db.engine)
+        # 3. DAOs (für Datenbank-Zugriff)
+        user_dao = UserDAO(self.database.engine)
+        location_dao = LocationDAO(self.database.engine)
+        alert_dao = AlertDAO(self.database.engine)
 
-        # 3. Services
+        # 4. Services (für externe Daten)
         weather_client = WeatherClient()
 
-        # 4. Controllers
-        auth_controller     = AuthController(user_dao)
+        # 5. Controllers (Logik zwischen UI und DB)
+        auth_controller = AuthController(user_dao)
         location_controller = LocationController(location_dao)
-        alert_controller    = AlertController(location_dao, alert_dao, weather_client)
-        history_controller  = HistoryController(alert_dao)
+        alert_controller = AlertController(location_dao, alert_dao, weather_client)
+        history_controller = HistoryController(alert_dao)
 
-        # 5. Pages
+        # 6. Pages (die Web-UI selbst)
         self.pages = Pages(
             auth_controller=auth_controller,
             location_controller=location_controller,
@@ -53,8 +61,16 @@ class WeatherGuardApplication:
             history_controller=history_controller,
         )
 
-    def run(self, host: str = "0.0.0.0", port: int = 8080, reload: bool = False) -> None:
-        """Register all routes and start the NiceGUI server."""
+    def _seed_if_empty(self):
+        """Fügt Demo-Daten ein, wenn noch keine User in der DB sind."""
+        with self.database.get_session() as session:
+            existing_user = session.exec(select(User)).first()
+            if existing_user is None:
+                seeder = WeatherSeeder()
+                seeder.seed(session)
+
+    def run(self, host="0.0.0.0", port=8080, reload=False):
+        """Registriert die Routen und startet den NiceGUI-Server."""
         self.pages.register()
         ui.run(
             title="WeatherGuard",
