@@ -1,12 +1,8 @@
-"""Package entrypoint.
-
-Run with:
-    python -m weather_guard
-or simply:
-    python __main__.py
-"""
+"""Alternativer Start: python -m weatherguard"""
 
 from application import WeatherGuardApplication
 
+
 if __name__ == "__main__":
-    WeatherGuardApplication().run()
+    app = WeatherGuardApplication()
+    app.run()

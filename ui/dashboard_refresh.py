@@ -16,9 +16,9 @@ from __future__ import annotations
 
 """Auto-Refresh für das Dashboard.
 
-Registriert zwei Timer:
-- Alle 1 Sekunde: Aktualisiert den Countdown-Text neben dem H1.
-- Alle 3 Minuten: Analysiert alle Standorte und lädt die Alerts neu.
+Diese Klasse kümmert sich um zwei Timer:
+1. Jede Sekunde: aktualisiert den Countdown-Text neben der Überschrift
+2. Alle 3 Minuten: lässt die Wetter-Analyse automatisch laufen
 """
 
 from datetime import datetime
@@ -75,32 +75,62 @@ def setup_refresh(
                 ui.notify(f"Fehler bei {loc.name}: {exc}", type="negative")
 REFRESH_INTERVAL = 180  # 3 Minuten in Sekunden
 
+# Intervall in Sekunden (3 Minuten = 180 Sekunden)
+REFRESH_INTERVAL_SECONDS = 180
 
-def setup_refresh(refresh_label, alert, location, callbacks, user_id):
-    """Startet den Countdown-Ticker und den 3-Minuten-Auto-Refresh."""
 
-    last_refresh = {"ts": datetime.now()}
+class DashboardRefresh:
+    """Verwaltet den Auto-Refresh des Dashboards."""
 
-    def update_label():
-        elapsed = int((datetime.now() - last_refresh["ts"]).total_seconds())
-        next_in = REFRESH_INTERVAL - elapsed
+    def __init__(self, refresh_label, alert_controller, location_controller, refresh_callbacks, user_id):
+        self.refresh_label = refresh_label                # UI-Label für den Countdown
+        self.alert_controller = alert_controller
+        self.location_controller = location_controller
+        self.refresh_callbacks = refresh_callbacks        # Dict mit "refresh_alerts": func
+        self.user_id = user_id
+        self.last_refresh = datetime.now()
 
-        elapsed_text = "gerade eben" if elapsed < 60 else f"vor {elapsed // 60} Min."
-        next_text    = f"in {next_in} Sek." if next_in < 60 else f"in {next_in // 60} Min."
+    def start(self):
+        """Startet die beiden Timer."""
+        # Countdown-Text jede Sekunde aktualisieren
+        ui.timer(1.0, self._update_countdown_label)
+        # Auto-Analyse alle 3 Minuten
+        ui.timer(REFRESH_INTERVAL_SECONDS, self._do_auto_refresh)
 
-        refresh_label.set_text(
+    def _update_countdown_label(self):
+        """Aktualisiert den Text neben der Dashboard-Überschrift."""
+        elapsed = int((datetime.now() - self.last_refresh).total_seconds())
+        next_in = REFRESH_INTERVAL_SECONDS - elapsed
+
+        # "vor X Min" oder "gerade eben"
+        if elapsed < 60:
+            elapsed_text = "gerade eben"
+        else:
+            elapsed_text = f"vor {elapsed // 60} Min."
+
+        # "in X Sek" oder "in X Min"
+        if next_in < 60:
+            next_text = f"in {next_in} Sek."
+        else:
+            next_text = f"in {next_in // 60} Min."
+
+        self.refresh_label.set_text(
             f"(letzte Aktualisierung {elapsed_text} / nächste Aktualisierung {next_text})"
         )
 
-    async def auto_refresh():
-        for loc in location.list_locations(user_id=user_id):
-            try:
-                alert.run_analysis(loc.id)
-            except Exception as e:
-                ui.notify(f"Fehler bei {loc.name}: {e}", type="negative")
+    async def _do_auto_refresh(self):
+        """Wird alle 3 Minuten aufgerufen: macht Wetter-Analyse für alle Standorte."""
+        locations = self.location_controller.list_locations(user_id=self.user_id)
 
-        last_refresh["ts"] = datetime.now()
-        callbacks["refresh_alerts"]()
+        for location in locations:
+            try:
+                self.alert_controller.run_analysis(location.id)
+            except Exception as error:
+                ui.notify(f"Fehler bei {location.name}: {error}", type="negative")
+
+        # Zeitpunkt merken und UI aktualisieren
+        self.last_refresh = datetime.now()
+        self.refresh_callbacks["refresh_alerts"]()
         ui.notify("Dashboard automatisch aktualisiert", type="info", timeout=3000)
 
     ui.timer(REFRESH_INTERVAL, _auto_refresh)

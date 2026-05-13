@@ -1,5 +1,8 @@
-"""App entrypoint — run with: python main.py"""
+"""Start-Skript für die App. Aufruf: python main.py"""
 
 from application import WeatherGuardApplication
 
-WeatherGuardApplication().run()
+
+if __name__ == "__main__":
+    app = WeatherGuardApplication()
+    app.run()
