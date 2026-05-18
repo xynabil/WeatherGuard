@@ -1152,9 +1152,9 @@ def _render_recent_alerts_section(history, user_id):
                     has_range     = active_range != "All"
 
                     if has_type and has_range:
-                        msg = f"Keine {active_type}-Alerts im Zeitraum „{active_range}" gefunden."
+                        msg = f"Keine {active_type}-Alerts im Zeitraum '{active_range}' gefunden."
                     elif has_range:
-                        msg = f"Keine Alerts im Zeitraum „{active_range}" gefunden."
+                        msg = f"Keine Alerts im Zeitraum '{active_range}' gefunden."
                     elif has_type:
                         msg = f"Keine {active_type}-Alerts vorhanden."
                     else:
