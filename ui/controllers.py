@@ -301,16 +301,17 @@ class HistoryController:
         result.sort(key=lambda item: item[1], reverse=True)
         return result
 
-    def get_recent_alerts(self, filter_type="All", user_id=None):
-        """Liste der letzten 50 Alerts, optional nach Typ gefiltert."""
-        alerts = self.alert_dao.list_all(limit=50, user_id=user_id)
+    def get_recent_alerts(self, filter_type="All", user_id=None, selected_date=None):
+        """Liste der Alerts, optional nach Typ und Tag gefiltert."""
+        # Mehr laden damit der Datumsfilter über alle Alerts arbeitet
+        alerts = self.alert_dao.list_all(limit=500, user_id=user_id)
 
-        if filter_type == "All":
-            return alerts
+        # Nach gewähltem Tag filtern (z.B. 18.05.2026)
+        if selected_date:
+            alerts = [a for a in alerts if a.created_at.date() == selected_date]
 
-        # Nach Typ filtern
-        filtered = []
-        for alert in alerts:
-            if PARAM_TO_TYPE.get(alert.parameter) == filter_type:
-                filtered.append(alert)
-        return filtered
+        # Nach Typ filtern (Frost, Wind, Rain, Snow)
+        if filter_type != "All":
+            alerts = [a for a in alerts if PARAM_TO_TYPE.get(a.parameter) == filter_type]
+
+        return alerts

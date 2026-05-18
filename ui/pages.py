@@ -227,7 +227,7 @@ def _render_alert_history_page(history):
                 ui.label("Alert History").style(
                     f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
                 )
-                ui.label("Alle Standorte · letzte 7 Tage").style(
+                ui.label("Alle Standorte").style(
                     f"color: {TEXT_MUTED}; font-size: 14px;"
                 )
 
@@ -1096,26 +1096,38 @@ def _render_alerts_by_type_chart(data):
 
 
 def _render_recent_alerts_section(history, user_id):
-    """Der "Recent alerts"-Abschnitt mit Filter-Chips und Alert-Liste."""
-    # Dict statt Variable, weil innere Funktionen den Wert ändern müssen
-    filter_state = {"active": "All"}
+    """Der "Recent alerts"-Abschnitt mit Datumsfilter, Filter-Chips und Alert-Liste."""
+    # Dict statt Variable, weil innere Funktionen die Werte ändern müssen
+    filter_state = {"active": "All", "date": None}
 
     with ui.column().classes("w-full").style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
         f"border-radius: 10px; padding: 20px; gap: 16px;"
     ):
-        ui.label("Recent alerts").style(
-            f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
-        )
+        # Titelzeile mit Datumseingabe nebeneinander
+        with ui.row().classes("w-full items-center justify-between no-wrap"):
+            ui.label("Recent alerts").style(
+                f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
+            )
+            # Datumsfeld: Nutzer tippt ein Datum im Format TT.MM.JJJJ
+            date_input = ui.input(placeholder="TT.MM.JJJJ").style(
+                f"background: {BG_CARD_SOFT}; color: {TEXT_PRIMARY}; "
+                f"border: 1px solid {BORDER}; border-radius: 6px; "
+                f"padding: 4px 10px; font-size: 13px; width: 130px;"
+            )
 
         chips_row = ui.row().classes("no-wrap").style("gap: 8px;")
         alert_list_column = ui.column().classes("w-full").style("gap: 10px; margin-top: 4px;")
 
         def refresh_alert_list():
-            """Liste neu zeichnen mit dem aktuellen Filter."""
+            """Liste neu zeichnen mit aktivem Typ-Filter und gewähltem Datum."""
             alert_list_column.clear()
             with alert_list_column:
-                filtered_alerts = history.get_recent_alerts(filter_state["active"], user_id=user_id)
+                filtered_alerts = history.get_recent_alerts(
+                    filter_state["active"],
+                    user_id=user_id,
+                    selected_date=filter_state["date"],
+                )
                 if not filtered_alerts:
                     ui.label("Keine Warnungen vorhanden.").style(
                         f"color: {TEXT_MUTED}; font-style: italic;"
@@ -1123,13 +1135,27 @@ def _render_recent_alerts_section(history, user_id):
                 for a in filtered_alerts:
                     _render_alert_history_row(a)
 
+        def on_date_change():
+            """Wird aufgerufen wenn sich das Datumsfeld ändert."""
+            from datetime import datetime as dt
+            raw = date_input.value.strip()
+            try:
+                # Datum aus DD.MM.YYYY parsen
+                filter_state["date"] = dt.strptime(raw, "%d.%m.%Y").date()
+            except ValueError:
+                # Ungültiges oder leeres Datum → kein Datumsfilter
+                filter_state["date"] = None
+            refresh_alert_list()
+
+        # Datumsfeld beobachten
+        date_input.on("change", lambda _: on_date_change())
+
         def set_filter(new_filter):
             """Wird aufgerufen, wenn ein Filter-Chip geklickt wird."""
             filter_state["active"] = new_filter
             # Chips neu zeichnen (damit der aktive Chip hervorgehoben wird)
             chips_row.clear()
             _build_filter_chips(chips_row, new_filter, set_filter)
-            # Alert-Liste neu zeichnen
             refresh_alert_list()
 
         # Initial: Chips und Liste zeichnen
