@@ -428,8 +428,8 @@ def _render_export_box(all_alerts):
             label="Zeitraum",
         ).style(f"color: {TEXT_PRIMARY}; font-size: 13px;").classes("w-full")
 
-        # Zwei Buttons nebeneinander: JSON und PDF
-        with ui.row().style("gap: 8px;"):
+        # Zwei Buttons nebeneinander: JSON und PDF – gleicher Stil für einheitliches Aussehen
+        with ui.row().classes("items-center").style("gap: 8px;"):
 
             # JSON-Export: Alerts als .json-Datei herunterladen
             async def export_json():
@@ -438,9 +438,8 @@ def _render_export_box(all_alerts):
                 content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
                 ui.download(content, "weatherguard_report.json")
 
-            ui.button("JSON", on_click=export_json).style(
-                f"background: {ACCENT_BLUE}; color: white; font-size: 13px; "
-                f"padding: 6px 16px; border-radius: 6px;"
+            ui.button("JSON", on_click=export_json).props("no-caps").style(
+                f"background: {ACCENT_BLUE}; color: white; font-size: 13px;"
             )
 
             # PDF-Export: Alerts als .pdf-Datei herunterladen
@@ -449,9 +448,8 @@ def _render_export_box(all_alerts):
                 pdf_bytes = _build_pdf(alerts, time_select.value)
                 ui.download(pdf_bytes, "weatherguard_report.pdf")
 
-            ui.button("PDF", on_click=export_pdf).style(
-                f"background: #3a3a3a; color: {TEXT_PRIMARY}; font-size: 13px; "
-                f"padding: 6px 16px; border-radius: 6px; border: 1px solid {BORDER};"
+            ui.button("PDF", on_click=export_pdf).props("no-caps").style(
+                f"background: #3a3a3a; color: {TEXT_PRIMARY}; font-size: 13px;"
             )
 
 
@@ -487,29 +485,30 @@ def _build_pdf(alerts, range_label):
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=10)
 
-    # Titel
+    # Titel – nur ASCII-Zeichen, da der Standard-PDF-Font keine Sonderzeichen kennt
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(0, 10, f"WeatherGuard Report – {range_label}", ln=True, align="C")
+    pdf.cell(0, 10, f"WeatherGuard Report - {range_label}",
+             new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.set_font("Helvetica", "", 9)
-    pdf.cell(0, 6, f"Erstellt am: {datetime.now().strftime('%d.%m.%Y %H:%M')}", ln=True, align="C")
+    pdf.cell(0, 6, f"Erstellt am: {datetime.now().strftime('%d.%m.%Y %H:%M')}",
+             new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(4)
 
     # Spaltenbreiten passend zu A4 Querformat (277 mm nutzbar)
     col_widths = [38, 46, 60, 24, 30, 30, 30]
     headers   = ["Datum", "Standort", "Warnung", "Severity", "Wert", "Grenzwert", "Parameter"]
 
-    # Tabellen-Header
+    # Tabellen-Header mit grauem Hintergrund
     pdf.set_font("Helvetica", "B", 9)
-    pdf.set_fill_color(40, 40, 40)
-    pdf.set_text_color(200, 200, 200)
+    pdf.set_fill_color(80, 80, 80)
+    pdf.set_text_color(230, 230, 230)
     for header, width in zip(headers, col_widths):
         pdf.cell(width, 7, header, border=1, fill=True)
     pdf.ln()
 
-    # Tabellen-Zeilen
+    # Tabellen-Zeilen – abwechselnd weiss und hellgrau
     pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(30, 30, 30)
-    for a in alerts:
+    for i, a in enumerate(alerts):
         location_name = a.location.name if a.location else "Unbekannt"
         row = [
             a.created_at.strftime("%d.%m.%Y %H:%M"),
@@ -520,8 +519,15 @@ def _build_pdf(alerts, range_label):
             str(a.threshold_value),
             a.parameter,
         ]
+        # Jede zweite Zeile leicht grau
+        if i % 2 == 0:
+            pdf.set_fill_color(255, 255, 255)
+            pdf.set_text_color(30, 30, 30)
+        else:
+            pdf.set_fill_color(240, 240, 240)
+            pdf.set_text_color(30, 30, 30)
         for value, width in zip(row, col_widths):
-            pdf.cell(width, 6, str(value), border=1)
+            pdf.cell(width, 6, str(value), border=1, fill=True)
         pdf.ln()
 
     # PDF als Bytes zurückgeben (kein Dateisystem nötig)
