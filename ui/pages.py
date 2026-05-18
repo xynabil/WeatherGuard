@@ -1096,37 +1096,53 @@ def _render_alerts_by_type_chart(data):
 
 
 def _render_recent_alerts_section(history, user_id):
-    """Der "Recent alerts"-Abschnitt mit Datumsfilter, Filter-Chips und Alert-Liste."""
+    """Der "Recent alerts"-Abschnitt mit Zeitraum-Dropdown, Filter-Chips und Alert-Liste."""
+    from datetime import datetime, timedelta
+
+    # Mapping: Anzeigetext → Zeitdelta (None = kein Filter)
+    TIME_RANGES = {
+        "All":        None,
+        "Last day":   timedelta(days=1),
+        "Last week":  timedelta(weeks=1),
+        "Last month": timedelta(days=30),
+        "Last year":  timedelta(days=365),
+    }
+
     # Dict statt Variable, weil innere Funktionen die Werte ändern müssen
-    filter_state = {"active": "All", "date": None}
+    filter_state = {"active": "All", "time_range": "All"}
 
     with ui.column().classes("w-full").style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
         f"border-radius: 10px; padding: 20px; gap: 16px;"
     ):
-        # Titelzeile mit Datumseingabe nebeneinander
+        # Titelzeile mit Zeitraum-Dropdown rechts
         with ui.row().classes("w-full items-center justify-between no-wrap"):
             ui.label("Recent alerts").style(
                 f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
             )
-            # Datumsfeld: Nutzer tippt ein Datum im Format TT.MM.JJJJ
-            date_input = ui.input(placeholder="TT.MM.JJJJ").style(
-                f"background: {BG_CARD_SOFT}; color: {TEXT_PRIMARY}; "
-                f"border: 1px solid {BORDER}; border-radius: 6px; "
-                f"padding: 4px 10px; font-size: 13px; width: 130px;"
-            )
+            # Dropdown mit den vier Zeiträumen und "All"
+            ui.select(
+                options=list(TIME_RANGES.keys()),
+                value="All",
+                on_change=lambda e: on_time_range_change(e.value),
+            ).style(f"color: {TEXT_PRIMARY}; font-size: 13px; min-width: 120px;")
 
         chips_row = ui.row().classes("no-wrap").style("gap: 8px;")
         alert_list_column = ui.column().classes("w-full").style("gap: 10px; margin-top: 4px;")
 
         def refresh_alert_list():
-            """Liste neu zeichnen mit aktivem Typ-Filter und gewähltem Datum."""
+            """Liste neu zeichnen mit aktivem Typ-Filter und gewähltem Zeitraum."""
             alert_list_column.clear()
+
+            # Startzeitpunkt berechnen (z.B. "Last week" → vor 7 Tagen)
+            delta = TIME_RANGES[filter_state["time_range"]]
+            since = datetime.now() - delta if delta else None
+
             with alert_list_column:
                 filtered_alerts = history.get_recent_alerts(
                     filter_state["active"],
                     user_id=user_id,
-                    selected_date=filter_state["date"],
+                    since=since,
                 )
                 if not filtered_alerts:
                     ui.label("Keine Warnungen vorhanden.").style(
@@ -1135,23 +1151,13 @@ def _render_recent_alerts_section(history, user_id):
                 for a in filtered_alerts:
                     _render_alert_history_row(a)
 
-        def on_date_change():
-            """Wird aufgerufen wenn sich das Datumsfeld ändert."""
-            from datetime import datetime as dt
-            raw = date_input.value.strip()
-            try:
-                # Datum aus DD.MM.YYYY parsen
-                filter_state["date"] = dt.strptime(raw, "%d.%m.%Y").date()
-            except ValueError:
-                # Ungültiges oder leeres Datum → kein Datumsfilter
-                filter_state["date"] = None
+        def on_time_range_change(value):
+            """Wird aufgerufen wenn ein anderer Zeitraum gewählt wird."""
+            filter_state["time_range"] = value
             refresh_alert_list()
 
-        # Datumsfeld beobachten
-        date_input.on("change", lambda _: on_date_change())
-
         def set_filter(new_filter):
-            """Wird aufgerufen, wenn ein Filter-Chip geklickt wird."""
+            """Wird aufgerufen, wenn ein Typ-Chip geklickt wird."""
             filter_state["active"] = new_filter
             # Chips neu zeichnen (damit der aktive Chip hervorgehoben wird)
             chips_row.clear()
