@@ -1121,10 +1121,10 @@ def _render_recent_alerts_section(history, user_id):
                 f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
             )
             # Dropdown mit den vier Zeiträumen und "All"
-            ui.select(
+            # on_value_change als Methode – konsistent mit dem restlichen Code
+            time_select = ui.select(
                 options=list(TIME_RANGES.keys()),
                 value="All",
-                on_change=lambda e: on_time_range_change(e.value),
             ).style(f"color: {TEXT_PRIMARY}; font-size: 13px; min-width: 120px;")
 
         chips_row = ui.row().classes("no-wrap").style("gap: 8px;")
@@ -1151,10 +1151,13 @@ def _render_recent_alerts_section(history, user_id):
                 for a in filtered_alerts:
                     _render_alert_history_row(a)
 
-        def on_time_range_change(value):
+        def on_time_range_change(e):
             """Wird aufgerufen wenn ein anderer Zeitraum gewählt wird."""
-            filter_state["time_range"] = value
+            filter_state["time_range"] = e.value
             refresh_alert_list()
+
+        # Event-Listener nach der Funktionsdefinition setzen
+        time_select.on_value_change(on_time_range_change)
 
         def set_filter(new_filter):
             """Wird aufgerufen, wenn ein Typ-Chip geklickt wird."""
