@@ -32,18 +32,21 @@ def _render_dashboard_page(location, alert):
 
 def _render_dashboard_main(location, alert, user_id):
     """Der Haupt-Bereich des Dashboards (alles ausser Sidebar)."""
+    # Dict für Callbacks: innere Funktionen können damit die UI neu laden
     refresh_callbacks = {}
 
     with ui.column().classes("grow").style(
         f"background: {BG_MAIN}; height: 100vh; overflow-y: auto; "
         f"padding: 24px 32px; gap: 20px;"
     ):
+        # Header: Titel links, Button "Neuer Standort" rechts
         with ui.row().classes("w-full items-center justify-between no-wrap"):
             with ui.column().style("gap: 4px;"):
                 with ui.row().classes("items-baseline no-wrap").style("gap: 10px;"):
                     ui.label("Dashboard").style(
                         f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
                     )
+                    # Countdown-Label für den Auto-Refresh (wird von DashboardRefresh befüllt)
                     refresh_info = ui.label("").style(
                         f"color: {TEXT_MUTED}; font-size: 12px; font-weight: 400;"
                     )
@@ -57,11 +60,13 @@ def _render_dashboard_main(location, alert, user_id):
                 on_click=lambda: _open_add_location_dialog(location, refresh_callbacks, user_id),
             ).style(f"background: {ACCENT_BLUE}; color: white;")
 
+        # Zwei Spalten: Standorte links, aktuelle Warnungen rechts
         with ui.row().classes("w-full").style("gap: 24px; align-items: flex-start;"):
             locations_column = ui.column().style("width: 360px; flex-shrink: 0; gap: 12px;")
             alerts_column    = ui.column().classes("grow").style("gap: 12px;")
 
         def refresh_locations():
+            # Standort-Spalte leeren und neu aufbauen
             locations_column.clear()
             user_locations = location.list_locations(user_id=user_id)
             with locations_column:
@@ -73,6 +78,7 @@ def _render_dashboard_main(location, alert, user_id):
                     _render_location_card(loc, alert, refresh_callbacks)
 
         def refresh_alerts():
+            # Alert-Spalte leeren und neu aufbauen
             alerts_column.clear()
             with alerts_column:
                 ui.label("Aktuelle Warnungen").style(
@@ -86,11 +92,13 @@ def _render_dashboard_main(location, alert, user_id):
                 for a in user_alerts:
                     _render_alert_card(a)
 
+        # Callbacks registrieren, damit auch DashboardRefresh sie aufrufen kann
         refresh_callbacks["refresh_locations"] = refresh_locations
         refresh_callbacks["refresh_alerts"]    = refresh_alerts
         refresh_locations()
         refresh_alerts()
 
+        # Auto-Refresh starten (aktualisiert alle 3 Minuten automatisch)
         dashboard_refresh = DashboardRefresh(
             refresh_label=refresh_info,
             alert_controller=alert,
@@ -114,10 +122,12 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
             f"color: {TEXT_PRIMARY}; font-size: 20px; font-weight: 600;"
         )
 
+        # Name und Firma nebeneinander
         with ui.row().classes("w-full no-wrap").style("gap: 12px;"):
             name_input    = ui.input("Name *", placeholder="z.B. Baustelle Zürich HB").classes("grow")
             company_input = ui.input("Firma", value=app.storage.user.get("company", "")).classes("grow")
 
+        # Branche bestimmt die Grenzwert-Vorschläge
         branch_select = ui.select(
             label="Branche (bestimmt Grenzwert-Vorschläge)",
             options=list(BRANCH_PRESETS.keys()),
@@ -128,10 +138,12 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
             f"color: {TEXT_PRIMARY}; font-size: 14px; font-weight: 600; margin-top: 4px;"
         )
 
-        marker_state          = {"marker": None, "lat": None, "lon": None}
+        # marker_state merkt sich den zuletzt gesetzten Kartenmarker
+        marker_state             = {"marker": None, "lat": None, "lon": None}
         search_results_container = ui.column().classes("w-full").style("gap: 4px;")
-        coords_label_holder   = {"label": None}
+        coords_label_holder      = {"label": None}
 
+        # Suchfeld mit Enter-Taste und Suchen-Button
         with ui.row().classes("w-full no-wrap items-end").style("gap: 8px;"):
             search_input = ui.input(
                 "Ort suchen", placeholder="z.B. Zürich HB, Bahnhof Olten …"
@@ -149,6 +161,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
             search_input.on("keydown.enter", do_search)
             ui.button("Suchen", icon="search", on_click=do_search).props("flat")
 
+        # Interaktive Karte (OpenStreetMap via Leaflet)
         with ui.element("div").style("height: 260px; width: 100%;"):
             leaflet_map = ui.leaflet(center=(46.8, 8.2), zoom=8).style("height: 260px;")
 
@@ -158,6 +171,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
         coords_label_holder["label"] = coords_label
 
         def on_map_click(event):
+            # Koordinaten aus dem Klick-Event lesen und Marker setzen/verschieben
             lat = event.args["latlng"]["lat"]
             lon = event.args["latlng"]["lng"]
             marker_state["lat"] = lat
@@ -181,10 +195,10 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
         )
 
         threshold_container = ui.column().classes("w-full").style("gap: 8px;")
-        threshold_inputs    = []
+        threshold_inputs    = []  # Liste der Eingabefelder (Preset + Wert)
 
         def build_threshold_inputs(branch):
-            """Zeichnet die Grenzwert-Zeilen neu (z.B. wenn Branche geändert wurde)."""
+            """Zeichnet die Grenzwert-Zeilen neu wenn die Branche geändert wird."""
             threshold_container.clear()
             threshold_inputs.clear()
             with threshold_container:
@@ -192,6 +206,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
                     row_data = _render_threshold_input_row(preset)
                     threshold_inputs.append(row_data)
 
+        # Initial die Grenzwerte für die Standard-Branche zeichnen
         build_threshold_inputs(branch_select.value)
         branch_select.on_value_change(lambda event: build_threshold_inputs(event.value))
 
@@ -202,6 +217,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
 
             def save():
                 error_label.set_text("")
+                # Pflichtfelder prüfen
                 if not name_input.value.strip():
                     error_label.set_text("Bitte einen Namen eingeben.")
                     return
@@ -209,6 +225,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
                     error_label.set_text("Bitte einen Punkt auf der Karte wählen.")
                     return
 
+                # Grenzwert-Liste für den Controller zusammenbauen
                 threshold_list = [
                     {"preset": row["preset"], "value": row["value_input"].value}
                     for row in threshold_inputs
@@ -234,40 +251,46 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
             )
 
     dialog.open()
+    # Kurz warten damit der Dialog geöffnet ist, dann Karte neu rendern
     await asyncio.sleep(0.5)
     leaflet_map.run_map_method("invalidateSize")
 
 
 def _render_threshold_input_row(preset):
-    """Eine Zeile im 'Grenzwerte anpassen'-Bereich des Dialogs."""
+    """Eine Zeile im 'Grenzwerte anpassen'-Bereich: Farbe, Label, Parameter und Eingabefeld."""
     color = SEVERITY_COLORS.get(preset["severity"], "#888")
 
     with ui.row().classes("w-full items-center no-wrap").style(
         f"background: {BG_INPUT}; border-radius: 8px; padding: 10px 14px; gap: 12px;"
     ):
+        # Farbpunkt zeigt den Schweregrad (rot = critical, gelb = warning)
         ui.element("div").style(
             f"width: 10px; height: 10px; border-radius: 50%; "
             f"background: {color}; flex-shrink: 0;"
         )
+        # Name des Grenzwerts (z.B. "Frost (Betonarbeiten)")
         ui.label(preset["label"]).style(
             f"color: {TEXT_PRIMARY}; font-size: 13px; flex-grow: 1;"
         )
+        # Parameter und Operator (z.B. "TTT_C <")
         ui.label(f"{preset['parameter']} {preset['operator']}").style(
             f"color: {TEXT_MUTED}; font-size: 12px; font-family: monospace; flex-shrink: 0;"
         )
+        # Wert-Eingabe: vorausgefüllt, aber vom User anpassbar
         value_input = ui.number(value=preset["value"]).style("width: 90px; flex-shrink: 0;")
 
     return {"preset": preset, "value_input": value_input}
 
 
 def _search_location_and_show(search_term, results_container, leaflet_map, marker_state, coords_label):
-    """Sucht einen Ort via OpenStreetMap und zeigt die Ergebnisse an."""
+    """Sucht einen Ort via OpenStreetMap Nominatim und zeigt die Treffer an."""
     search_term = search_term.strip()
     if not search_term:
         return
 
     results_container.clear()
 
+    # API-Aufruf an OpenStreetMap
     try:
         response = requests.get(
             "https://nominatim.openstreetmap.org/search",
@@ -287,6 +310,7 @@ def _search_location_and_show(search_term, results_container, leaflet_map, marke
             )
         return
 
+    # Gefundene Orte als klickbare Zeilen anzeigen
     with results_container:
         ui.label("Ergebnisse — klicke auf den richtigen Ort:").style(
             f"color: {TEXT_MUTED}; font-size: 12px; padding: 2px 4px;"
@@ -296,14 +320,16 @@ def _search_location_and_show(search_term, results_container, leaflet_map, marke
 
 
 def _render_search_result_row(item, results_container, leaflet_map, marker_state, coords_label):
-    """Eine einzelne Zeile mit einem Suchergebnis."""
+    """Eine einzelne Zeile mit einem Suchergebnis (klickbar → Marker setzen)."""
     lat          = float(item["lat"])
     lon          = float(item["lon"])
     display_name = item.get("display_name", "")
-    parts        = [p.strip() for p in display_name.split(",")]
-    short_name   = ", ".join(parts[:2])
+    # Nur die ersten zwei Teile des langen Ortsnamens anzeigen
+    parts      = [p.strip() for p in display_name.split(",")]
+    short_name = ", ".join(parts[:2])
 
     def on_select():
+        # Karte auf den Ort zentrieren und Marker setzen/verschieben
         results_container.clear()
         marker_state["lat"] = lat
         marker_state["lon"] = lon
@@ -333,11 +359,12 @@ def _render_search_result_row(item, results_container, leaflet_map, marker_state
 
 
 def _render_location_card(location, alert_controller, refresh_callbacks):
-    """Eine Karte mit einem Standort (im Dashboard)."""
+    """Eine Karte mit Standort-Infos, Wetter-Vorschau und Grenzwerten."""
     with ui.column().style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
         f"border-radius: 10px; padding: 16px; gap: 10px;"
     ):
+        # Obere Zeile: Info links, Buttons rechts
         with ui.row().classes("items-start justify-between w-full no-wrap"):
             with ui.column().style("gap: 2px;"):
                 ui.label(location.name).style(
@@ -351,6 +378,7 @@ def _render_location_card(location, alert_controller, refresh_callbacks):
                 )
             _render_location_card_buttons(location, alert_controller, refresh_callbacks)
 
+        # Wetter-Zeile: wird asynchron nachgeladen (erst Spinner, dann Werte)
         weather_row = ui.row().style("gap: 16px; flex-wrap: wrap; min-height: 32px;")
 
         def load_weather():
@@ -360,6 +388,7 @@ def _render_location_card(location, alert_controller, refresh_callbacks):
             ui.spinner(size="xs")
         ui.timer(0.1, load_weather, once=True)
 
+        # Grenzwerte ausklappbar anzeigen
         if location.thresholds:
             with ui.expansion("Grenzwerte", icon="tune").classes("w-full"):
                 for threshold in location.thresholds:
@@ -372,7 +401,9 @@ def _render_location_card(location, alert_controller, refresh_callbacks):
 def _render_location_card_buttons(location, alert_controller, refresh_callbacks):
     """Die Refresh- und Lösch-Buttons in der Standort-Karte."""
     with ui.row().style("gap: 4px;"):
+
         def run_analysis():
+            # Wetter-Analyse für diesen Standort starten
             ui.notify(f"Analyse läuft für {location.name}…", type="info")
             try:
                 new_alerts = alert_controller.run_analysis(location.id)
@@ -389,6 +420,7 @@ def _render_location_card_buttons(location, alert_controller, refresh_callbacks)
         )
 
         def delete_location():
+            # Standort (inkl. Grenzwerte und Alerts) aus der DB löschen
             try:
                 alert_controller.location_dao.delete(location.id)
             except Exception as error:
@@ -404,14 +436,14 @@ def _render_location_card_buttons(location, alert_controller, refresh_callbacks)
 
 
 def _fill_weather_row(weather_row, location, alert_controller):
-    """Holt die Wetterdaten und füllt die Wetter-Zeile auf der Standort-Karte."""
+    """Holt Wetterdaten vom Controller und füllt die Wetter-Zeile in der Karte."""
     weather_row.clear()
     with weather_row:
         ui.spinner(size="xs")
 
     try:
-        forecast = alert_controller.get_current_weather(location.latitude, location.longitude)
-        days     = forecast.get("days", [])
+        forecast   = alert_controller.get_current_weather(location.latitude, location.longitude)
+        days       = forecast.get("days", [])
         weather_row.clear()
 
         if not days or not days[0].get("hours"):
@@ -419,6 +451,7 @@ def _fill_weather_row(weather_row, location, alert_controller):
                 ui.label("Keine Wetterdaten").style(f"color: {TEXT_MUTED}; font-size: 12px;")
             return
 
+        # Erste Stunde des ersten Tages anzeigen
         first_hour = days[0]["hours"][0]
         with weather_row:
             _render_weather_stat("🌡", f"{first_hour.get('TTT_C', '-')}°C",        "Temp")
@@ -432,7 +465,7 @@ def _fill_weather_row(weather_row, location, alert_controller):
 
 
 def _render_weather_stat(icon, value, label):
-    """Ein kleines Wetter-Element (Icon + Wert + Label)."""
+    """Ein kleines Wetter-Element bestehend aus Icon, Wert und Einheits-Label."""
     with ui.column().style("align-items: center; gap: 1px;"):
         ui.label(f"{icon} {value}").style(
             f"color: {TEXT_PRIMARY}; font-size: 13px; font-weight: 600;"
@@ -441,10 +474,11 @@ def _render_weather_stat(icon, value, label):
 
 
 def _render_alert_card(alert):
-    """Eine Alert-Karte im Dashboard (rechte Spalte)."""
-    color          = SEVERITY_COLORS.get(alert.severity, TEXT_MUTED)
-    bg_color       = SEVERITY_BG.get(alert.severity, BG_CARD)
-    location_name  = alert.location.name if alert.location else "Unbekannt"
+    """Eine Alert-Karte im Dashboard (rechte Spalte) mit Schweregrad-Farbe."""
+    color           = SEVERITY_COLORS.get(alert.severity, TEXT_MUTED)
+    bg_color        = SEVERITY_BG.get(alert.severity, BG_CARD)
+    location_name   = alert.location.name if alert.location else "Unbekannt"
+    # Lesbaren Parameter-Namen aus dem RiskAnalyzer holen (z.B. "TTT_C" → "Temperatur")
     parameter_label = RiskAnalyzer.PARAMETER_LABELS.get(alert.parameter, alert.parameter)
 
     with ui.column().style(
@@ -452,6 +486,7 @@ def _render_alert_card(alert):
         f"border-left: 4px solid {color}; border-radius: 10px; "
         f"padding: 14px 16px; gap: 4px;"
     ):
+        # Obere Zeile: Warnung-Label links, Zeitpunkt rechts
         with ui.row().classes("w-full items-center justify-between no-wrap"):
             ui.label(alert.threshold_label).style(
                 f"color: {color}; font-size: 15px; font-weight: 600;"
@@ -462,6 +497,7 @@ def _render_alert_card(alert):
         ui.label(f"Standort: {location_name}").style(
             f"color: {TEXT_PRIMARY}; font-size: 13px;"
         )
+        # Gemessener Wert und der Grenzwert der überschritten wurde
         ui.label(
             f"{parameter_label}: {alert.actual_value} (Grenzwert: {alert.threshold_value})"
         ).style(f"color: {TEXT_MUTED}; font-size: 13px;")

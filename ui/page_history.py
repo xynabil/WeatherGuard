@@ -28,6 +28,7 @@ def _render_alert_history_page(history):
             f"background: {BG_MAIN}; height: 100vh; overflow-y: auto; "
             f"padding: 24px 32px; gap: 20px;"
         ):
+            # User-Avatar oben rechts
             _render_user_chip()
 
             with ui.column().style("gap: 4px;"):
@@ -38,19 +39,23 @@ def _render_alert_history_page(history):
                     f"color: {TEXT_MUTED}; font-size: 14px;"
                 )
 
+            # KPI-Karten: Total, Danger, Warning, Heute
             kpis = history.get_kpis(user_id=user_id)
             _render_kpi_row(kpis)
 
+            # Zwei Charts nebeneinander: Alerts pro Tag + Alerts pro Typ
             _render_charts_row(
                 history.get_alerts_per_day(user_id=user_id),
                 history.get_alerts_by_type(user_id=user_id),
             )
 
+            # Gefilterte Alert-Liste mit Zeitraum-Dropdown und Typ-Chips
             _render_recent_alerts_section(history, user_id)
 
 
 def _render_kpi_row(kpis):
     """Die 4 KPI-Karten oben auf der Alert-History-Seite."""
+    # (Label, Wert, Farbe) pro Karte
     cards = [
         ("Total Alerts", kpis["total"],   TEXT_PRIMARY),
         ("Danger",       kpis["danger"],  "#f47174"),
@@ -71,14 +76,14 @@ def _render_kpi_row(kpis):
 
 
 def _render_charts_row(alerts_per_day, alerts_by_type):
-    """Die beiden Charts (Alerts pro Tag + Alerts pro Typ) nebeneinander."""
+    """Die beiden Charts nebeneinander in einer Zeile."""
     with ui.row().classes("w-full no-wrap").style("gap: 16px;"):
         _render_alerts_per_day_chart(alerts_per_day)
         _render_alerts_by_type_chart(alerts_by_type)
 
 
 def _render_alerts_per_day_chart(data):
-    """Balken-Diagramm: Alerts pro Tag (letzte 7 Tage)."""
+    """Balken-Diagramm: Alerts pro Tag (letzte 7 Tage), heute rot markiert."""
     with ui.column().classes("grow").style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
         f"border-radius: 10px; padding: 20px; gap: 16px;"
@@ -87,9 +92,11 @@ def _render_alerts_per_day_chart(data):
             f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
         )
 
+        # Achsenbeschriftung und Balkendaten aufbereiten
         x_axis_labels = [day[0] for day in data]
         bar_data = []
         for day_name, count, is_today in data:
+            # Heutiger Tag wird rot eingefärbt, alle anderen blau
             color = "#e05659" if is_today else "#6b9dd4"
             bar_data.append({"value": count, "itemStyle": {"color": color}})
 
@@ -128,12 +135,14 @@ def _render_alerts_by_type_chart(data):
             )
             return
 
+        # Grösste Anzahl für die Skalierung der Balken
         max_count = max(item[1] for item in data)
 
         with ui.column().classes("w-full").style("gap: 12px; padding: 8px 0;"):
             for name, count, color in data:
                 with ui.row().classes("w-full items-center no-wrap").style("gap: 12px;"):
                     ui.label(name).style(f"color: {TEXT_PRIMARY}; font-size: 13px; width: 60px;")
+                    # Grauer Hintergrund-Balken mit farbigem Füll-Balken
                     with ui.element("div").style(
                         "flex-grow: 1; background: #1a1a1a; height: 16px; "
                         "border-radius: 4px; overflow: hidden;"
@@ -150,28 +159,32 @@ def _render_alerts_by_type_chart(data):
 
 def _render_recent_alerts_section(history, user_id):
     """Der 'Recent alerts'-Abschnitt mit Zeitraum-Dropdown, Filter-Chips und Alert-Liste."""
+    # Dict statt Variable, damit innere Funktionen die Werte ändern können
     filter_state = {"active": "All", "time_range": "All"}
 
     with ui.column().classes("w-full").style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
         f"border-radius: 10px; padding: 20px; gap: 16px;"
     ):
+        # Titelzeile mit Zeitraum-Dropdown rechts
         with ui.row().classes("w-full items-center justify-between no-wrap"):
             ui.label("Recent alerts").style(
                 f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
             )
+            # Zeitraum-Auswahl: All, Last day, Last week, Last month, Last year
             time_select = ui.select(
                 options=list(TIME_RANGES.keys()),
                 value="All",
             ).style(f"color: {TEXT_PRIMARY}; font-size: 13px; min-width: 120px;")
 
-        chips_row        = ui.row().classes("no-wrap").style("gap: 8px;")
+        chips_row         = ui.row().classes("no-wrap").style("gap: 8px;")
         alert_list_column = ui.column().classes("w-full").style("gap: 10px; margin-top: 4px;")
 
         def refresh_alert_list():
-            """Liste neu zeichnen mit aktivem Typ-Filter und gewähltem Zeitraum."""
+            """Alert-Liste neu zeichnen mit aktivem Typ-Filter und Zeitraum."""
             alert_list_column.clear()
 
+            # Startzeitpunkt aus dem gewählten Zeitraum berechnen
             delta = TIME_RANGES[filter_state["time_range"]]
             since = datetime.now() - delta if delta else None
 
@@ -182,6 +195,7 @@ def _render_recent_alerts_section(history, user_id):
                     since=since,
                 )
                 if not filtered_alerts:
+                    # Meldung je nach aktivem Filter anpassen
                     active_type  = filter_state["active"]
                     active_range = filter_state["time_range"]
                     has_type     = active_type  != "All"
@@ -209,21 +223,24 @@ def _render_recent_alerts_section(history, user_id):
         time_select.on_value_change(on_time_range_change)
 
         def set_filter(new_filter):
-            """Wird aufgerufen, wenn ein Typ-Chip geklickt wird."""
+            """Wird aufgerufen wenn ein Typ-Chip geklickt wird."""
             filter_state["active"] = new_filter
+            # Chips neu zeichnen damit der aktive Chip hervorgehoben wird
             chips_row.clear()
             _build_filter_chips(chips_row, new_filter, set_filter)
             refresh_alert_list()
 
+        # Initial: Chips und Liste zeichnen
         _build_filter_chips(chips_row, filter_state["active"], set_filter)
         refresh_alert_list()
 
 
 def _build_filter_chips(chips_row, active_chip, on_click_callback):
-    """Zeichnet die Filter-Chips (All, Frost, Wind, Rain, Snow)."""
+    """Zeichnet alle Filter-Chips (All, Frost, Wind, Rain, Snow)."""
     chip_labels = ["All", "Frost", "Wind", "Rain", "Snow"]
     with chips_row:
         for chip_label in chip_labels:
+            # Lambda mit Default-Argument damit chip_label korrekt gebunden wird
             _render_filter_chip(
                 chip_label,
                 active=(chip_label == active_chip),
@@ -232,7 +249,7 @@ def _build_filter_chips(chips_row, active_chip, on_click_callback):
 
 
 def _render_filter_chip(label, active, on_click):
-    """Ein einzelner Filter-Chip (klickbarer Pill-Button)."""
+    """Ein einzelner Filter-Chip: aktiv = blau, inaktiv = grau."""
     if active:
         style = (
             f"background: #1e3558; color: {ACCENT_BLUE}; "
@@ -251,10 +268,11 @@ def _render_filter_chip(label, active, on_click):
 
 
 def _render_alert_history_row(alert):
-    """Eine Zeile in der 'Recent alerts'-Liste."""
+    """Eine Zeile in der 'Recent alerts'-Liste mit Badge, Info und Zeitstempel."""
     severity_style = SEVERITY_STYLES.get(alert.severity, SEVERITY_STYLES["info"])
     location_name  = alert.location.name if alert.location else "Unbekannt"
 
+    # Zeitstempel: "heute HH:MM", "gestern HH:MM" oder "DD.MM. HH:MM"
     now        = datetime.now()
     alert_date = alert.created_at.date()
     if alert_date == now.date():
@@ -268,11 +286,13 @@ def _render_alert_history_row(alert):
         f"background: {BG_CARD_SOFT}; border: 1px solid {BORDER}; "
         f"border-radius: 8px; padding: 12px 16px; gap: 16px;"
     ):
+        # Severity-Badge (danger / warning / info)
         ui.label(severity_style["label"]).style(
             f"background: {severity_style['bg']}; color: {severity_style['color']}; "
             f"padding: 3px 10px; border-radius: 4px; font-size: 12px; "
             f"font-weight: 500; min-width: 68px; text-align: center;"
         )
+        # Info: Warnung-Label und Wert/Standort
         with ui.column().classes("grow").style("gap: 2px;"):
             ui.label(alert.threshold_label).style(
                 f"color: {TEXT_PRIMARY}; font-size: 14px; font-weight: 600;"
@@ -280,6 +300,7 @@ def _render_alert_history_row(alert):
             ui.label(
                 f"{location_name} · {alert.actual_value} (Grenzwert: {alert.threshold_value})"
             ).style(f"color: {TEXT_MUTED}; font-size: 13px;")
+        # Relativer Zeitstempel rechts
         ui.label(when_text).style(
             f"color: {TEXT_MUTED}; font-size: 12px; white-space: nowrap;"
         )

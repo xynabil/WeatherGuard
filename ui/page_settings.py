@@ -29,7 +29,7 @@ def _render_settings_page(auth):
                 f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
             )
 
-            # Karte 1: Account-Infos
+            # Karte 1: Account-Infos (nur Anzeige, nicht editierbar)
             with ui.column().style(
                 f"background: {BG_CARD}; border: 1px solid {BORDER}; "
                 f"border-radius: 10px; padding: 24px; gap: 12px; max-width: 480px;"
@@ -49,7 +49,7 @@ def _render_settings_page(auth):
 
 
 def _render_change_password_card(auth, username):
-    """Die 'Passwort ändern'-Karte auf der Settings-Seite."""
+    """Die 'Passwort ändern'-Karte: aktuelles Passwort prüfen, neues setzen."""
     with ui.column().style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
         f"border-radius: 10px; padding: 24px; gap: 16px; max-width: 480px;"
@@ -57,20 +57,23 @@ def _render_change_password_card(auth, username):
         ui.label("Passwort ändern").style(
             f"color: {TEXT_PRIMARY}; font-size: 16px; font-weight: 600;"
         )
-        current_pw = ui.input("Aktuelles Passwort", password=True, password_toggle_button=True).classes("w-full")
-        new_pw     = ui.input("Neues Passwort",     password=True, password_toggle_button=True).classes("w-full")
-        confirm_pw = ui.input("Passwort bestätigen", password=True, password_toggle_button=True).classes("w-full")
+        current_pw  = ui.input("Aktuelles Passwort", password=True, password_toggle_button=True).classes("w-full")
+        new_pw      = ui.input("Neues Passwort",     password=True, password_toggle_button=True).classes("w-full")
+        confirm_pw  = ui.input("Passwort bestätigen", password=True, password_toggle_button=True).classes("w-full")
         error_label = ui.label("").style("color: #f47174; font-size: 13px; min-height: 18px;")
 
         def save_password():
             error_label.set_text("")
+            # Beide neuen Passwörter müssen übereinstimmen
             if new_pw.value != confirm_pw.value:
                 error_label.set_text("Neue Passwörter stimmen nicht überein.")
                 return
+            # Controller prüft das aktuelle Passwort und speichert das neue
             error_message = auth.change_password(username, current_pw.value, new_pw.value)
             if error_message:
                 error_label.set_text(error_message)
                 return
+            # Erfolgreich: Felder leeren
             current_pw.value = ""
             new_pw.value     = ""
             confirm_pw.value = ""

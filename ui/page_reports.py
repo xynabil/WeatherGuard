@@ -14,7 +14,7 @@ from ui.components import (
 )
 
 
-# Spalten der Reports-Tabelle: (Name, Breite)
+# Spalten der Reports-Tabelle: (Spaltenname, Breite)
 REPORT_COLUMNS = [
     ("Datum",            "150px"),
     ("Standort",         "180px"),
@@ -41,7 +41,7 @@ def _render_reports_page(alert):
             f"background: {BG_MAIN}; height: 100vh; overflow-y: auto; "
             f"padding: 24px 32px; gap: 20px;"
         ):
-            # Titelzeile: Links Überschrift, rechts Export-Box
+            # Titelzeile: Überschrift links, Export-Box rechts
             with ui.row().classes("w-full items-start").style(
                 "justify-content: space-between; gap: 16px;"
             ):
@@ -53,9 +53,10 @@ def _render_reports_page(alert):
                         f"color: {TEXT_MUTED}; font-size: 14px;"
                     )
 
+                # Export-Box oben rechts
                 _render_export_box(all_alerts)
 
-            # Tabelle
+            # Tabelle mit Header und allen Alert-Zeilen
             with ui.column().classes("w-full").style(
                 f"background: {BG_CARD}; border: 1px solid {BORDER}; "
                 f"border-radius: 10px; overflow: hidden;"
@@ -65,12 +66,13 @@ def _render_reports_page(alert):
                     ui.label("Keine Alerts vorhanden.").style(
                         f"color: {TEXT_MUTED}; font-style: italic; padding: 20px 16px;"
                     )
+                # Jede zweite Zeile bekommt einen anderen Hintergrund (Streifen-Effekt)
                 for index, a in enumerate(all_alerts):
                     _render_reports_table_row(a, is_alternate=(index % 2 == 1))
 
 
 def _render_export_box(all_alerts):
-    """Box oben rechts auf der Reports-Seite: Zeitraum wählen + JSON/PDF exportieren."""
+    """Box oben rechts: Zeitraum wählen und als JSON oder PDF exportieren."""
     with ui.column().style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; border-radius: 10px; "
         f"padding: 16px 20px; gap: 12px; min-width: 260px;"
@@ -79,6 +81,7 @@ def _render_export_box(all_alerts):
             f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
         )
 
+        # Zeitraum-Dropdown – gleiche Optionen wie in der Alert History
         time_select = ui.select(
             options=list(TIME_RANGES.keys()),
             value="All",
@@ -88,6 +91,7 @@ def _render_export_box(all_alerts):
         with ui.row().classes("items-center").style("gap: 8px;"):
 
             async def export_json():
+                # Alerts filtern, in Dicts umwandeln und als .json herunterladen
                 alerts  = _filter_alerts_by_range(all_alerts, time_select.value)
                 data    = _alerts_to_dicts(alerts)
                 content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
@@ -98,6 +102,7 @@ def _render_export_box(all_alerts):
             )
 
             async def export_pdf():
+                # Alerts filtern, PDF erstellen und herunterladen
                 alerts    = _filter_alerts_by_range(all_alerts, time_select.value)
                 pdf_bytes = _build_pdf(alerts, time_select.value)
                 ui.download(pdf_bytes, "weatherguard_report.pdf")
@@ -111,33 +116,35 @@ def _filter_alerts_by_range(alerts, range_key):
     """Gibt nur die Alerts zurück, die in den gewählten Zeitraum fallen."""
     delta = TIME_RANGES.get(range_key)
     if delta is None:
+        # "All" → keine Filterung, alle Alerts zurückgeben
         return alerts
     since = datetime.now() - delta
     return [a for a in alerts if a.created_at >= since]
 
 
 def _alerts_to_dicts(alerts):
-    """Wandelt eine Liste von Alert-Objekten in JSON-serialisierbare Dicts um."""
+    """Wandelt Alert-Objekte in einfache Dicts um (für den JSON-Export)."""
     return [
         {
-            "datum":      a.created_at.strftime("%d.%m.%Y %H:%M"),
-            "standort":   a.location.name if a.location else "Unbekannt",
-            "warnung":    a.threshold_label,
-            "severity":   a.severity,
-            "wert":       a.actual_value,
-            "grenzwert":  a.threshold_value,
-            "parameter":  a.parameter,
+            "datum":     a.created_at.strftime("%d.%m.%Y %H:%M"),
+            "standort":  a.location.name if a.location else "Unbekannt",
+            "warnung":   a.threshold_label,
+            "severity":  a.severity,
+            "wert":      a.actual_value,
+            "grenzwert": a.threshold_value,
+            "parameter": a.parameter,
         }
         for a in alerts
     ]
 
 
 def _build_pdf(alerts, range_label):
-    """Erstellt ein einfaches PDF mit der Alerts-Tabelle und gibt die Bytes zurück."""
+    """Erstellt ein PDF im A4-Querformat mit einer Tabelle aller Alerts."""
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=10)
 
+    # Titel und Datum
     pdf.set_font("Helvetica", "B", 14)
     pdf.cell(0, 10, f"WeatherGuard Report - {range_label}",
              new_x="LMARGIN", new_y="NEXT", align="C")
@@ -146,9 +153,9 @@ def _build_pdf(alerts, range_label):
              new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(4)
 
+    # Tabellen-Header mit grauem Hintergrund
     col_widths = [38, 46, 60, 24, 30, 30, 30]
     headers    = ["Datum", "Standort", "Warnung", "Severity", "Wert", "Grenzwert", "Parameter"]
-
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_fill_color(80, 80, 80)
     pdf.set_text_color(230, 230, 230)
@@ -156,32 +163,27 @@ def _build_pdf(alerts, range_label):
         pdf.cell(width, 7, header, border=1, fill=True)
     pdf.ln()
 
+    # Tabellen-Zeilen mit abwechselndem Hintergrund (weiss / hellgrau)
     pdf.set_font("Helvetica", "", 8)
     for i, a in enumerate(alerts):
         location_name = a.location.name if a.location else "Unbekannt"
         row = [
             a.created_at.strftime("%d.%m.%Y %H:%M"),
-            location_name,
-            a.threshold_label,
-            a.severity,
-            str(a.actual_value),
-            str(a.threshold_value),
-            a.parameter,
+            location_name, a.threshold_label, a.severity,
+            str(a.actual_value), str(a.threshold_value), a.parameter,
         ]
-        if i % 2 == 0:
-            pdf.set_fill_color(255, 255, 255)
-        else:
-            pdf.set_fill_color(240, 240, 240)
+        pdf.set_fill_color(255, 255, 255) if i % 2 == 0 else pdf.set_fill_color(240, 240, 240)
         pdf.set_text_color(30, 30, 30)
         for value, width in zip(row, col_widths):
             pdf.cell(width, 6, str(value), border=1, fill=True)
         pdf.ln()
 
+    # Bytes zurückgeben – kein Dateisystem nötig
     return bytes(pdf.output())
 
 
 def _render_reports_table_header():
-    """Die Kopfzeile der Reports-Tabelle."""
+    """Die Kopfzeile der Reports-Tabelle mit allen Spalten-Titeln."""
     with ui.row().classes("w-full no-wrap").style(
         f"background: #1f1f1f; padding: 12px 16px; gap: 16px; "
         f"border-bottom: 1px solid {BORDER};"
@@ -196,8 +198,10 @@ def _render_reports_table_header():
 def _render_reports_table_row(alert, is_alternate):
     """Eine Daten-Zeile in der Reports-Tabelle."""
     color          = SEVERITY_COLORS.get(alert.severity, TEXT_MUTED)
+    # "critical" wird in der Tabelle als "danger" angezeigt
     severity_label = "danger" if alert.severity == "critical" else alert.severity
     location_name  = alert.location.name if alert.location else "Unbekannt"
+    # Jede zweite Zeile leicht heller (Streifen-Effekt für bessere Lesbarkeit)
     background     = BG_CARD_SOFT if is_alternate else BG_CARD
 
     with ui.row().classes("w-full no-wrap items-center").style(

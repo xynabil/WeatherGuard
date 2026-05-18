@@ -10,17 +10,21 @@ from ui.components import (
 
 def _render_login_page(auth):
     """Login- und Registrierungs-Seite (URL '/')."""
+    # Bereits eingeloggte User direkt zur App-Seite weiterleiten
     if _is_logged_in():
         ui.navigate.to("/app")
         return
 
     _setup_dark_mode()
 
+    # Karte zentriert auf dem Bildschirm
     with ui.column().classes("absolute-center items-center").style("gap: 0;"):
+        # Logo
         with ui.row().classes("items-center no-wrap").style("margin-bottom: 32px; gap: 0;"):
             ui.label("Weather").style(f"color: {TEXT_PRIMARY}; font-size: 28px; font-weight: 700;")
             ui.label("Guard").style(f"color: {ACCENT_BLUE}; font-size: 28px; font-weight: 700;")
 
+        # Karte mit zwei Tabs: Anmelden und Registrieren
         with ui.column().style(
             f"background: {BG_CARD}; border: 1px solid {BORDER}; "
             f"border-radius: 12px; padding: 32px 36px; gap: 16px; width: 340px;"
@@ -43,10 +47,12 @@ def _render_login_form(auth):
     error_label    = ui.label("").style("color: #f47174; font-size: 13px; min-height: 20px;")
 
     def try_login():
+        # Controller prüft Benutzername und Passwort
         user = auth.verify_login(username_input.value, password_input.value)
         if user is None:
             error_label.set_text("Benutzername oder Passwort falsch.")
             return
+        # Login erfolgreich: Daten in die Session schreiben
         app.storage.user["logged_in"] = True
         app.storage.user["user_id"]   = user.id
         app.storage.user["username"]  = user.username
@@ -56,6 +62,7 @@ def _render_login_form(auth):
     ui.button("Login", on_click=try_login, icon="login").classes("w-full").style(
         f"background: {ACCENT_BLUE}; color: white; margin-top: 4px;"
     )
+    # Hinweis für Demo-Zugang
     ui.label("Demo-Zugang: admin / admin123").style(
         f"color: {TEXT_MUTED}; font-size: 12px; text-align: center; margin-top: 4px;"
     )
@@ -71,6 +78,7 @@ def _render_register_form(auth):
 
     def try_register():
         error_label.set_text("")
+        # Controller validiert und legt den User in der DB an
         error_message = auth.register(
             username_input.value,
             password_input.value,
