@@ -1145,7 +1145,22 @@ def _render_recent_alerts_section(history, user_id):
                     since=since,
                 )
                 if not filtered_alerts:
-                    ui.label("Keine Warnungen vorhanden.").style(
+                    # Meldung je nach aktivem Filter anpassen
+                    active_type   = filter_state["active"]
+                    active_range  = filter_state["time_range"]
+                    has_type      = active_type  != "All"
+                    has_range     = active_range != "All"
+
+                    if has_type and has_range:
+                        msg = f"Keine {active_type}-Alerts im Zeitraum „{active_range}" gefunden."
+                    elif has_range:
+                        msg = f"Keine Alerts im Zeitraum „{active_range}" gefunden."
+                    elif has_type:
+                        msg = f"Keine {active_type}-Alerts vorhanden."
+                    else:
+                        msg = "Noch keine Alerts vorhanden."
+
+                    ui.label(msg).style(
                         f"color: {TEXT_MUTED}; font-style: italic;"
                     )
                 for a in filtered_alerts:
