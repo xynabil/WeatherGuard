@@ -16,8 +16,12 @@ Seiten benutzt.
 """
 
 import asyncio
+import io
+import json
+from datetime import datetime, timedelta
 
 import requests
+from fpdf import FPDF
 from nicegui import ui, app
 
 from domain.models import Alert, Location
@@ -49,6 +53,15 @@ SEVERITY_STYLES = {
     "critical": {"color": "#f47174", "bg": "#3b1f22", "label": "danger"},
     "warning":  {"color": "#d4a24a", "bg": "#3a2e1a", "label": "warning"},
     "info":     {"color": "#4a9eff", "bg": "#1e2a3a", "label": "info"},
+}
+
+# Zeitraum-Optionen für Dropdown (Alert History & Reports-Export)
+TIME_RANGES = {
+    "All":        None,
+    "Last day":   timedelta(days=1),
+    "Last week":  timedelta(weeks=1),
+    "Last month": timedelta(days=30),
+    "Last year":  timedelta(days=365),
 }
 
 
@@ -362,14 +375,20 @@ def _render_reports_page(alert):
             f"background: {BG_MAIN}; height: 100vh; overflow-y: auto; "
             f"padding: 24px 32px; gap: 20px;"
         ):
-            # Titel
-            with ui.column().style("gap: 4px;"):
-                ui.label("Reports").style(
-                    f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
-                )
-                ui.label(f"{len(all_alerts)} Alerts insgesamt").style(
-                    f"color: {TEXT_MUTED}; font-size: 14px;"
-                )
+            # Titelzeile: Links Überschrift, rechts Export-Box
+            with ui.row().classes("w-full items-start").style("justify-content: space-between; gap: 16px;"):
+
+                # Linke Seite: Titel + Anzahl
+                with ui.column().style("gap: 4px;"):
+                    ui.label("Reports").style(
+                        f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
+                    )
+                    ui.label(f"{len(all_alerts)} Alerts insgesamt").style(
+                        f"color: {TEXT_MUTED}; font-size: 14px;"
+                    )
+
+                # Rechte Seite: Export-Box
+                _render_export_box(all_alerts)
 
             # Tabelle
             with ui.column().classes("w-full").style(
@@ -384,6 +403,129 @@ def _render_reports_page(alert):
                 for index, a in enumerate(all_alerts):
                     is_alternate_row = (index % 2 == 1)
                     _render_reports_table_row(a, is_alternate_row)
+
+
+# ===========================================================================
+# Export-Box und Export-Hilfsfunktionen für die Reports-Seite
+# ===========================================================================
+
+def _render_export_box(all_alerts):
+    """Box oben rechts auf der Reports-Seite: Zeitraum wählen + JSON/PDF exportieren."""
+
+    # Karte mit Rahmen (gleicher Stil wie andere Karten im Projekt)
+    with ui.column().style(
+        f"background: {BG_CARD}; border: 1px solid {BORDER}; border-radius: 10px; "
+        f"padding: 16px 20px; gap: 12px; min-width: 260px;"
+    ):
+        ui.label("Export").style(
+            f"color: {TEXT_PRIMARY}; font-size: 15px; font-weight: 600;"
+        )
+
+        # Zeitraum-Dropdown – gleiche Optionen wie in der Alert History
+        time_select = ui.select(
+            options=list(TIME_RANGES.keys()),
+            value="All",
+            label="Zeitraum",
+        ).style(f"color: {TEXT_PRIMARY}; font-size: 13px;").classes("w-full")
+
+        # Zwei Buttons nebeneinander: JSON und PDF
+        with ui.row().style("gap: 8px;"):
+
+            # JSON-Export: Alerts als .json-Datei herunterladen
+            async def export_json():
+                alerts = _filter_alerts_by_range(all_alerts, time_select.value)
+                data = _alerts_to_dicts(alerts)
+                content = json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8")
+                ui.download(content, "weatherguard_report.json")
+
+            ui.button("JSON", on_click=export_json).style(
+                f"background: {ACCENT_BLUE}; color: white; font-size: 13px; "
+                f"padding: 6px 16px; border-radius: 6px;"
+            )
+
+            # PDF-Export: Alerts als .pdf-Datei herunterladen
+            async def export_pdf():
+                alerts = _filter_alerts_by_range(all_alerts, time_select.value)
+                pdf_bytes = _build_pdf(alerts, time_select.value)
+                ui.download(pdf_bytes, "weatherguard_report.pdf")
+
+            ui.button("PDF", on_click=export_pdf).style(
+                f"background: #3a3a3a; color: {TEXT_PRIMARY}; font-size: 13px; "
+                f"padding: 6px 16px; border-radius: 6px; border: 1px solid {BORDER};"
+            )
+
+
+def _filter_alerts_by_range(alerts, range_key):
+    """Gibt nur die Alerts zurück, die in den gewählten Zeitraum fallen."""
+    delta = TIME_RANGES.get(range_key)
+    if delta is None:
+        # "All" → keine Filterung
+        return alerts
+    since = datetime.now() - delta
+    return [a for a in alerts if a.created_at >= since]
+
+
+def _alerts_to_dicts(alerts):
+    """Wandelt eine Liste von Alert-Objekten in JSON-serialisierbare Dicts um."""
+    result = []
+    for a in alerts:
+        result.append({
+            "datum":         a.created_at.strftime("%d.%m.%Y %H:%M"),
+            "standort":      a.location.name if a.location else "Unbekannt",
+            "warnung":       a.threshold_label,
+            "severity":      a.severity,
+            "wert":          a.actual_value,
+            "grenzwert":     a.threshold_value,
+            "parameter":     a.parameter,
+        })
+    return result
+
+
+def _build_pdf(alerts, range_label):
+    """Erstellt ein einfaches PDF mit der Alerts-Tabelle und gibt die Bytes zurück."""
+    pdf = FPDF(orientation="L", unit="mm", format="A4")
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=10)
+
+    # Titel
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(0, 10, f"WeatherGuard Report – {range_label}", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 9)
+    pdf.cell(0, 6, f"Erstellt am: {datetime.now().strftime('%d.%m.%Y %H:%M')}", ln=True, align="C")
+    pdf.ln(4)
+
+    # Spaltenbreiten passend zu A4 Querformat (277 mm nutzbar)
+    col_widths = [38, 46, 60, 24, 30, 30, 30]
+    headers   = ["Datum", "Standort", "Warnung", "Severity", "Wert", "Grenzwert", "Parameter"]
+
+    # Tabellen-Header
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_fill_color(40, 40, 40)
+    pdf.set_text_color(200, 200, 200)
+    for header, width in zip(headers, col_widths):
+        pdf.cell(width, 7, header, border=1, fill=True)
+    pdf.ln()
+
+    # Tabellen-Zeilen
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(30, 30, 30)
+    for a in alerts:
+        location_name = a.location.name if a.location else "Unbekannt"
+        row = [
+            a.created_at.strftime("%d.%m.%Y %H:%M"),
+            location_name,
+            a.threshold_label,
+            a.severity,
+            str(a.actual_value),
+            str(a.threshold_value),
+            a.parameter,
+        ]
+        for value, width in zip(row, col_widths):
+            pdf.cell(width, 6, str(value), border=1)
+        pdf.ln()
+
+    # PDF als Bytes zurückgeben (kein Dateisystem nötig)
+    return bytes(pdf.output())
 
 
 # ===========================================================================
@@ -1097,17 +1239,6 @@ def _render_alerts_by_type_chart(data):
 
 def _render_recent_alerts_section(history, user_id):
     """Der "Recent alerts"-Abschnitt mit Zeitraum-Dropdown, Filter-Chips und Alert-Liste."""
-    from datetime import datetime, timedelta
-
-    # Mapping: Anzeigetext → Zeitdelta (None = kein Filter)
-    TIME_RANGES = {
-        "All":        None,
-        "Last day":   timedelta(days=1),
-        "Last week":  timedelta(weeks=1),
-        "Last month": timedelta(days=30),
-        "Last year":  timedelta(days=365),
-    }
-
     # Dict statt Variable, weil innere Funktionen die Werte ändern müssen
     filter_state = {"active": "All", "time_range": "All"}
 
@@ -1222,8 +1353,6 @@ def _render_filter_chip(label, active, on_click):
 
 def _render_alert_history_row(alert):
     """Eine Zeile in der "Recent alerts"-Liste."""
-    from datetime import datetime
-
     severity_style = SEVERITY_STYLES.get(alert.severity, SEVERITY_STYLES["info"])
     location_name = alert.location.name if alert.location else "Unbekannt"
 
