@@ -99,7 +99,20 @@ class LocationDAO:
                 session.delete(location)
                 session.commit()
 
+    def update_thresholds(self, location_id, threshold_values):
+        """Aktualisiert die Werte der Grenzwerte eines Standorts.
 
+        threshold_values ist ein Dict: {threshold_id: neuer_wert, ...}
+        """
+        with Session(self.engine) as session:
+            location = session.get(Location, location_id)
+            if location is None:
+                return
+            for threshold in location.thresholds:
+                if threshold.id in threshold_values:
+                    threshold.value = threshold_values[threshold.id]
+                    session.add(threshold)
+            session.commit()
 # ---------------------------------------------------------------------------
 # AlertDAO
 # ---------------------------------------------------------------------------

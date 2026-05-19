@@ -165,6 +165,12 @@ class LocationController:
         """Löscht einen Standort (samt Grenzwerten und Alerts)."""
         self.location_dao.delete(location_id)
 
+    def update_thresholds(self, location_id, threshold_values):
+        """Aktualisiert die Werte aller Grenzwerte eines Standorts.
+
+        threshold_values: Dict wie {threshold_id: neuer_wert, ...}
+        """
+        self.location_dao.update_thresholds(location_id, threshold_values)
 
 # ---------------------------------------------------------------------------
 # AlertController - Wetter-Analyse laufen lassen & Alerts auflisten

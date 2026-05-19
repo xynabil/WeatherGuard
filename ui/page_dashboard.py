@@ -418,6 +418,11 @@ def _render_location_card_buttons(location, location_controller, alert_controlle
         ui.button(icon="refresh", on_click=run_analysis).props("flat size=sm").tooltip(
             "Wetter prüfen & Alerts aktualisieren"
         )
+        
+        ui.button(
+            icon="tune",
+            on_click=lambda: _open_edit_thresholds_dialog(location, location_controller, refresh_callbacks),
+        ).props("flat size=sm").tooltip("Grenzwerte anpassen")
 
         def delete_location():
             # Standort (inkl. Grenzwerte und Alerts) aus der DB löschen
@@ -501,3 +506,74 @@ def _render_alert_card(alert):
         ui.label(
             f"{parameter_label}: {alert.actual_value} (Grenzwert: {alert.threshold_value})"
         ).style(f"color: {TEXT_MUTED}; font-size: 13px;")
+
+def _open_edit_thresholds_dialog(location, location_controller, refresh_callbacks):
+    """Dialog zum Anpassen der Grenzwert-Schwellen eines bestehenden Standorts."""
+    if not location.thresholds:
+        ui.notify("Keine Grenzwerte vorhanden.", type="warning")
+        return
+
+    dialog = ui.dialog().props("persistent")
+
+    with dialog, ui.card().style(
+        f"background: {BG_CARD}; border: 1px solid {BORDER}; "
+        f"border-radius: 12px; padding: 28px; gap: 16px; "
+        f"width: 520px; max-width: 95vw;"
+    ):
+        ui.label(f"Grenzwerte bearbeiten: {location.name}").style(
+            f"color: {TEXT_PRIMARY}; font-size: 18px; font-weight: 600;"
+        )
+        ui.label("Passe die Schwellenwerte an. Label und Operator bleiben unverändert.").style(
+            f"color: {TEXT_MUTED}; font-size: 12px;"
+        )
+
+        # Pro Grenzwert eine Zeile mit Eingabefeld
+        threshold_inputs = []  # Liste von (threshold_id, ui.number-Element)
+
+        for threshold in location.thresholds:
+            color = SEVERITY_COLORS.get(threshold.severity, TEXT_MUTED)
+
+            with ui.row().classes("w-full items-center no-wrap").style(
+                f"background: {BG_INPUT}; border-radius: 8px; padding: 10px 14px; gap: 12px;"
+            ):
+                # Farb-Punkt (zeigt Schweregrad)
+                ui.element("div").style(
+                    f"width: 10px; height: 10px; border-radius: 50%; "
+                    f"background: {color}; flex-shrink: 0;"
+                )
+                # Label (nicht editierbar)
+                ui.label(threshold.label).style(
+                    f"color: {TEXT_PRIMARY}; font-size: 13px; flex-grow: 1;"
+                )
+                # Parameter + Operator (nicht editierbar)
+                ui.label(f"{threshold.parameter} {threshold.operator}").style(
+                    f"color: {TEXT_MUTED}; font-size: 12px; font-family: monospace; flex-shrink: 0;"
+                )
+                # Wert (editierbar)
+                value_input = ui.number(value=threshold.value).style(
+                    "width: 90px; flex-shrink: 0;"
+                )
+                threshold_inputs.append((threshold.id, value_input))
+
+        # Buttons unten
+        with ui.row().classes("w-full justify-end").style("gap: 8px; margin-top: 8px;"):
+            ui.button("Abbrechen", on_click=dialog.close).props("flat")
+
+            def save():
+                # Werte sammeln und an Controller weitergeben
+                new_values = {}
+                for threshold_id, value_input in threshold_inputs:
+                    new_values[threshold_id] = value_input.value
+                location_controller.update_thresholds(location.id, new_values)
+                dialog.close()
+                ui.notify(
+                    f"✓ Grenzwerte für '{location.name}' aktualisiert.",
+                    type="positive",
+                )
+                refresh_callbacks["refresh_locations"]()
+
+            ui.button("Speichern", icon="save", on_click=save).style(
+                f"background: {ACCENT_BLUE}; color: white;"
+            )
+
+    dialog.open()
