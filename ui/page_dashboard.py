@@ -140,7 +140,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
 
         # marker_state merkt sich den zuletzt gesetzten Kartenmarker
         marker_state             = {"marker": None, "lat": None, "lon": None}
-        search_results_container = ui.column().classes("w-full").style("gap: 4px;")
+       
         coords_label_holder      = {"label": None}
 
         # Suchfeld mit Enter-Taste und Suchen-Button
@@ -160,8 +160,8 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
 
             search_input.on("keydown.enter", do_search)
             ui.button("Suchen", icon="search", on_click=do_search).props("flat")
-
-        # Interaktive Karte (OpenStreetMap via Leaflet)
+        search_results_container = ui.column().classes("w-full").style("gap: 4px;")        # Interaktive Karte (OpenStreetMap via Leaflet)
+        
         with ui.element("div").style("height: 260px; width: 100%;"):
             leaflet_map = ui.leaflet(center=(46.8, 8.2), zoom=8).style("height: 260px;")
 
