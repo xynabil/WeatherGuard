@@ -10,6 +10,7 @@ Wir haben drei DAOs:
 - AlertDAO    - für Wetter-Warnungen
 """
 
+from datetime import datetime
 from sqlmodel import Session, select
 
 from domain.models import User, Location, Alert
@@ -109,6 +110,32 @@ class AlertDAO:
     def __init__(self, engine):
         self.engine = engine
 
+    def list_current(self, user_id=None):
+        """Gibt nur die heutigen Alerts zurück (für das Live-Dashboard)."""
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        with Session(self.engine) as session:
+            if user_id is not None:
+                loc_statement = select(Location).where(Location.user_id == user_id)
+                location_ids = [loc.id for loc in session.exec(loc_statement).all()]
+                if not location_ids:
+                    return []
+                statement = (
+                    select(Alert)
+                    .where(Alert.location_id.in_(location_ids))
+                    .where(Alert.created_at >= today_start)
+                    .order_by(Alert.created_at.desc())
+                )
+            else:
+                statement = (
+                    select(Alert)
+                    .where(Alert.created_at >= today_start)
+                    .order_by(Alert.created_at.desc())
+                )
+            alerts = list(session.exec(statement).all())
+            for alert in alerts:
+                _ = alert.location
+            return alerts
+
     def list_all(self, limit=200, user_id=None):
         """Gibt die neuesten Alerts eines Users zurück (max. 'limit' Stück)."""
         with Session(self.engine) as session:
@@ -135,15 +162,16 @@ class AlertDAO:
                 _ = alert.location
             return alerts
 
-    def replace_for_location(self, location_id, new_alerts):
-        """Löscht alle alten Alerts eines Standorts und fügt die neuen ein."""
+    def replace_for_location(self, location_id, since, new_alerts):
+        """Löscht Alerts eines Standorts ab 'since' und fügt die neuen ein."""
         with Session(self.engine) as session:
-            # Alte Alerts dieses Standorts löschen
-            statement = select(Alert).where(Alert.location_id == location_id)
-            old_alerts = session.exec(statement).all()
-            for old in old_alerts:
+            statement = (
+                select(Alert)
+                .where(Alert.location_id == location_id)
+                .where(Alert.created_at >= since)
+            )
+            for old in session.exec(statement).all():
                 session.delete(old)
-            # Neue Alerts einfügen
             for new_alert in new_alerts:
                 session.add(new_alert)
             session.commit()

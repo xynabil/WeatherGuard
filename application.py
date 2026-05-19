@@ -13,7 +13,7 @@ Sie tut der Reihe nach:
 from nicegui import ui
 from sqlmodel import select
 
-from config import DATABASE_URL
+from config import DATABASE_URL, STORAGE_SECRET
 from data_access.db import Database
 from data_access.dao import UserDAO, LocationDAO, AlertDAO
 from data_access.seed import WeatherSeeder
@@ -78,5 +78,5 @@ class WeatherGuardApplication:
             port=port,
             reload=reload,
             dark=True,
-            storage_secret="weatherguard-secret",
+            storage_secret=STORAGE_SECRET,
         )

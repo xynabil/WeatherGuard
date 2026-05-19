@@ -40,17 +40,36 @@ def _render_alert_history_page(history):
                 )
 
             # KPI-Karten: Total, Danger, Warning, Heute
-            kpis = history.get_kpis(user_id=user_id)
-            _render_kpi_row(kpis)
+            kpi_container = ui.row().classes("w-full no-wrap").style("gap: 16px;")
+
+            def refresh_kpis(since=None):
+                kpi_container.clear()
+                with kpi_container:
+                    _render_kpi_row(history.get_kpis(user_id=user_id, since=since))
+
+            refresh_kpis()
 
             # Zwei Charts nebeneinander: Alerts pro Tag + Alerts pro Typ
-            _render_charts_row(
-                history.get_alerts_per_day(user_id=user_id),
-                history.get_alerts_by_type(user_id=user_id),
-            )
+            charts_container = ui.row().classes("w-full no-wrap").style("gap: 16px;")
+
+            def refresh_charts(since=None):
+                charts_container.clear()
+                with charts_container:
+                    _render_alerts_per_day_chart(
+                        history.get_alerts_per_day(user_id=user_id, since=since)
+                    )
+                    _render_alerts_by_type_chart(
+                        history.get_alerts_by_type(user_id=user_id, since=since)
+                    )
+
+            refresh_charts()
+
+            def refresh_all(since=None):
+                refresh_kpis(since)
+                refresh_charts(since)
 
             # Gefilterte Alert-Liste mit Zeitraum-Dropdown und Typ-Chips
-            _render_recent_alerts_section(history, user_id)
+            _render_recent_alerts_section(history, user_id, on_time_change=refresh_all)
 
 
 def _render_kpi_row(kpis):
@@ -74,12 +93,6 @@ def _render_kpi_row(kpis):
                     f"color: {color}; font-size: 32px; font-weight: 600; line-height: 1;"
                 )
 
-
-def _render_charts_row(alerts_per_day, alerts_by_type):
-    """Die beiden Charts nebeneinander in einer Zeile."""
-    with ui.row().classes("w-full no-wrap").style("gap: 16px;"):
-        _render_alerts_per_day_chart(alerts_per_day)
-        _render_alerts_by_type_chart(alerts_by_type)
 
 
 def _render_alerts_per_day_chart(data):
@@ -109,7 +122,13 @@ def _render_alerts_per_day_chart(data):
                 "axisLabel": {"color": TEXT_MUTED, "fontSize": 12},
                 "axisTick":  {"show": False},
             },
-            "yAxis": {"type": "value", "show": False},
+            "yAxis": {
+                "type": "value",
+                "show": True,
+                "minInterval": 1,
+                "axisLabel": {"color": TEXT_MUTED, "fontSize": 11},
+                "splitLine": {"lineStyle": {"color": BORDER, "type": "dashed"}},
+            },
             "series": [{
                 "type": "bar",
                 "data": bar_data,
@@ -157,7 +176,7 @@ def _render_alerts_by_type_chart(data):
                     )
 
 
-def _render_recent_alerts_section(history, user_id):
+def _render_recent_alerts_section(history, user_id, on_time_change=None):
     """Der 'Recent alerts'-Abschnitt mit Zeitraum-Dropdown, Filter-Chips und Alert-Liste."""
     # Dict statt Variable, damit innere Funktionen die Werte ändern können
     filter_state = {"active": "All", "time_range": "All"}
@@ -218,7 +237,11 @@ def _render_recent_alerts_section(history, user_id):
         def on_time_range_change(e):
             """Wird aufgerufen wenn ein anderer Zeitraum gewählt wird."""
             filter_state["time_range"] = e.value
+            delta = TIME_RANGES[e.value]
+            since = datetime.now() - delta if delta else None
             refresh_alert_list()
+            if on_time_change:
+                on_time_change(since)
 
         time_select.on_value_change(on_time_range_change)
 

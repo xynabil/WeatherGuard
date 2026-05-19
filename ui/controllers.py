@@ -13,7 +13,7 @@ So muss die UI keine DB-Queries kennen und der Code bleibt aufgeteilt:
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-from domain.models import User, Location, WeatherThreshold
+from domain.models import Location, WeatherThreshold
 from services.risk_analyzer import RiskAnalyzer
 
 
@@ -195,14 +195,19 @@ class AlertController:
         # Analyse durchführen
         new_alerts = self.risk_analyzer.analyze(location)
 
-        # Alte Alerts ersetzen
-        self.alert_dao.replace_for_location(location_id, new_alerts)
+        # Nur die heutigen Alerts ersetzen, historische bleiben erhalten
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        self.alert_dao.replace_for_location(location_id, today_start, new_alerts)
 
         return new_alerts
 
     def list_alerts(self, limit=200, user_id=None):
         """Gibt die Alerts eines Users zurück (neueste zuerst)."""
         return self.alert_dao.list_all(limit=limit, user_id=user_id)
+
+    def list_current_alerts(self, user_id=None):
+        """Gibt nur die heutigen Alerts zurück (für das Live-Dashboard)."""
+        return self.alert_dao.list_current(user_id=user_id)
 
     def get_current_weather(self, latitude, longitude):
         """Holt die aktuelle Wetter-Prognose (für die UI-Anzeige)."""
@@ -219,21 +224,21 @@ class HistoryController:
     def __init__(self, alert_dao):
         self.alert_dao = alert_dao
 
-    def get_kpis(self, user_id=None):
+    def get_kpis(self, user_id=None, since=None):
         """Gibt die 4 KPI-Zahlen oben auf der Seite zurück.
 
         Returns: Dict mit Schlüsseln 'total', 'danger', 'warning', 'heute'.
         """
         all_alerts = self.alert_dao.list_all(user_id=user_id)
+        if since:
+            all_alerts = [a for a in all_alerts if a.created_at >= since]
         today = datetime.now().date()
 
-        # Zähler initialisieren
-        total = len(all_alerts)
-        danger = 0
+        total   = len(all_alerts)
+        danger  = 0
         warning = 0
-        heute = 0
+        heute   = 0
 
-        # Alerts durchgehen und zählen
         for alert in all_alerts:
             if alert.severity == "critical":
                 danger += 1
@@ -249,39 +254,41 @@ class HistoryController:
             "heute": heute,
         }
 
-    def get_alerts_per_day(self, user_id=None):
+    def get_alerts_per_day(self, user_id=None, since=None):
         """Daten für das Balken-Diagramm: Alerts pro Tag (letzte 7 Tage).
 
         Returns: Liste von Tupeln (Tagesname, Anzahl, ist_heute).
         """
-        # Alle Alerts der letzten 7 Tage holen
-        cutoff = datetime.now() - timedelta(days=7)
+        today  = datetime.now().date()
+        cutoff = since.date() if since else today - timedelta(days=6)
         all_alerts = self.alert_dao.list_all(user_id=user_id)
-        recent_alerts = [a for a in all_alerts if a.created_at >= cutoff]
+        recent_alerts = [a for a in all_alerts if a.created_at.date() >= cutoff]
 
         # Alerts pro Datum zählen
         counts_by_date = defaultdict(int)
         for alert in recent_alerts:
             counts_by_date[alert.created_at.date()] += 1
 
-        # Liste für die letzten 7 Tage bauen (ältester zuerst)
-        today = datetime.now().date()
+        # Alle Tage vom cutoff bis heute bauen (ältester zuerst)
         result = []
-        for days_ago in range(6, -1, -1):
-            day = today - timedelta(days=days_ago)
-            day_name = DAY_NAMES[day.weekday()]
-            count = counts_by_date.get(day, 0)
+        num_days = (today - cutoff).days + 1
+        for days_ago in range(num_days - 1, -1, -1):
+            day      = today - timedelta(days=days_ago)
+            day_name = day.strftime("%d.%m") if num_days > 7 else DAY_NAMES[day.weekday()]
+            count    = counts_by_date.get(day, 0)
             is_today = (day == today)
             result.append((day_name, count, is_today))
 
         return result
 
-    def get_alerts_by_type(self, user_id=None):
+    def get_alerts_by_type(self, user_id=None, since=None):
         """Daten für das Kategorie-Diagramm.
 
         Returns: Liste von Tupeln (Typ-Name, Anzahl, Farbe), sortiert nach Anzahl.
         """
         all_alerts = self.alert_dao.list_all(user_id=user_id)
+        if since:
+            all_alerts = [a for a in all_alerts if a.created_at >= since]
 
         # Pro Typ zählen (Frost, Wind, Rain, Snow, Other)
         counts_by_type = defaultdict(int)

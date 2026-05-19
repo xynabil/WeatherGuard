@@ -75,7 +75,7 @@ def _render_dashboard_main(location, alert, user_id):
                         f"color: {TEXT_MUTED}; font-style: italic;"
                     )
                 for loc in user_locations:
-                    _render_location_card(loc, alert, refresh_callbacks)
+                    _render_location_card(loc, location, alert, refresh_callbacks)
 
         def refresh_alerts():
             # Alert-Spalte leeren und neu aufbauen
@@ -84,7 +84,7 @@ def _render_dashboard_main(location, alert, user_id):
                 ui.label("Aktuelle Warnungen").style(
                     f"color: {TEXT_PRIMARY}; font-size: 18px; font-weight: 600;"
                 )
-                user_alerts = alert.list_alerts(user_id=user_id)
+                user_alerts = alert.list_current_alerts(user_id=user_id)
                 if not user_alerts:
                     ui.label("Keine Warnungen — alles im grünen Bereich! ✓").style(
                         "color: #4ec9a8; font-style: italic; font-size: 14px;"
@@ -358,7 +358,7 @@ def _render_search_result_row(item, results_container, leaflet_map, marker_state
             )
 
 
-def _render_location_card(location, alert_controller, refresh_callbacks):
+def _render_location_card(location, location_controller, alert_controller, refresh_callbacks):
     """Eine Karte mit Standort-Infos, Wetter-Vorschau und Grenzwerten."""
     with ui.column().style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; "
@@ -376,7 +376,7 @@ def _render_location_card(location, alert_controller, refresh_callbacks):
                 ui.label(f"{location.latitude:.4f}°N, {location.longitude:.4f}°E").style(
                     f"color: {TEXT_MUTED}; font-size: 11px; font-family: monospace;"
                 )
-            _render_location_card_buttons(location, alert_controller, refresh_callbacks)
+            _render_location_card_buttons(location, location_controller, alert_controller, refresh_callbacks)
 
         # Wetter-Zeile: wird asynchron nachgeladen (erst Spinner, dann Werte)
         weather_row = ui.row().style("gap: 16px; flex-wrap: wrap; min-height: 32px;")
@@ -398,7 +398,7 @@ def _render_location_card(location, alert_controller, refresh_callbacks):
                     ).style(f"color: {color}; font-size: 13px;")
 
 
-def _render_location_card_buttons(location, alert_controller, refresh_callbacks):
+def _render_location_card_buttons(location, location_controller, alert_controller, refresh_callbacks):
     """Die Refresh- und Lösch-Buttons in der Standort-Karte."""
     with ui.row().style("gap: 4px;"):
 
@@ -422,7 +422,7 @@ def _render_location_card_buttons(location, alert_controller, refresh_callbacks)
         def delete_location():
             # Standort (inkl. Grenzwerte und Alerts) aus der DB löschen
             try:
-                alert_controller.location_dao.delete(location.id)
+                location_controller.delete_location(location.id)
             except Exception as error:
                 ui.notify(f"Fehler: {error}", type="negative")
                 return

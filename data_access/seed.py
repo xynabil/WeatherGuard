@@ -50,19 +50,40 @@ DEMO_LOCATIONS = [
 
 # Demo-Alerts: (Standort-Index, Label, Severity, Parameter, Ist-Wert, Grenzwert, Tage_zurück, Stunde)
 DEMO_ALERTS = [
+    # --- Diese Woche ---
     # Zürich HB (Index 0)
     (0, "Sturm (Kranarbeiten)",   "critical", "FX_KMH",       72.0,  60.0, 0, 8),
     (0, "Starkregen",              "warning",  "RRR_MM",       18.0,  10.0, 1, 14),
     (0, "Frost (Betonarbeiten)",   "critical", "TTT_C",         2.3,   5.0, 3, 6),
-    (0, "Starkregen",              "warning",  "RRR_MM",       14.5,  10.0, 5, 11),
     # Olten (Index 1)
-    (1, "Frost (Glätte)",          "warning",  "TTT_C",         1.5,   2.0, 1, 6),
-    (1, "Regen (Outdoor)",         "warning",  "RRR_MM",        8.2,   5.0, 2, 16),
+    (1, "Frost (Glätte)",          "warning",  "TTT_C",         1.5,   0.0, 2, 6),
     (1, "Sturm (Zelte/Bühnen)",    "critical", "FX_KMH",       55.0,  40.0, 4, 13),
     # Basel (Index 2)
-    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  8.0,   5.0, 2, 7),
-    (2, "Extremkälte",             "critical", "TTT_C",        -7.1,  -5.0, 3, 4),
-    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  6.5,   5.0, 6, 9),
+    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  8.0,   5.0, 3, 7),
+
+    # --- Vorletzte Woche (8–14 Tage zurück) ---
+    (0, "Starkregen",              "warning",  "RRR_MM",       14.5,  10.0, 9,  11),
+    (0, "Frost (Betonarbeiten)",   "critical", "TTT_C",         1.1,   5.0, 11,  5),
+    (1, "Regen (Outdoor)",         "warning",  "RRR_MM",        8.2,   5.0, 8,  16),
+    (1, "Sturm (Zelte/Bühnen)",    "critical", "FX_KMH",       62.0,  40.0, 13, 10),
+    (2, "Extremkälte",             "critical", "TTT_C",        -7.1,  -5.0, 10,  4),
+    (2, "Orkan",                   "critical", "FX_KMH",       88.0,  70.0, 12,  9),
+
+    # --- Vor 3 Wochen (15–21 Tage zurück) ---
+    (0, "Sturm (Kranarbeiten)",    "critical", "FX_KMH",       79.0,  60.0, 16,  7),
+    (0, "Starkregen",              "warning",  "RRR_MM",       12.0,  10.0, 18, 15),
+    (1, "Frost (Glätte)",          "warning",  "TTT_C",        -0.8,   0.0, 15,  6),
+    (1, "Regen (Outdoor)",         "warning",  "RRR_MM",        6.5,   5.0, 20, 14),
+    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  6.5,   5.0, 17,  9),
+    (2, "Extremkälte",             "critical", "TTT_C",        -9.0,  -5.0, 21,  3),
+
+    # --- Vor 4 Wochen (22–28 Tage zurück) ---
+    (0, "Frost (Betonarbeiten)",   "critical", "TTT_C",         0.5,   5.0, 24,  5),
+    (0, "Sturm (Kranarbeiten)",    "critical", "FX_KMH",       66.0,  60.0, 27,  8),
+    (1, "Sturm (Zelte/Bühnen)",    "critical", "FX_KMH",       48.0,  40.0, 23, 11),
+    (1, "Regen (Outdoor)",         "warning",  "RRR_MM",        7.1,   5.0, 26, 17),
+    (2, "Orkan",                   "critical", "FX_KMH",       75.0,  70.0, 22, 12),
+    (2, "Schneefall",              "warning",  "FRESHSNOW_CM",  9.2,   5.0, 28,  8),
 ]
 
 

@@ -6,3 +6,6 @@ nicht im Code suchen muss.
 
 # Wo wird die SQLite-Datenbank gespeichert?
 DATABASE_URL = "sqlite:///weatherguard.db"
+
+# Geheimschlüssel für die Browser-Session (NiceGUI storage)
+STORAGE_SECRET = "weatherguard-secret"

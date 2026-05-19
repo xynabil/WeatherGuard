@@ -42,6 +42,7 @@ def _render_reports_page(alert):
             f"padding: 24px 32px; gap: 20px;"
         ):
             # Titelzeile: Überschrift links, Export-Box rechts
+            count_label = None
             with ui.row().classes("w-full items-start").style(
                 "justify-content: space-between; gap: 16px;"
             ):
@@ -49,30 +50,41 @@ def _render_reports_page(alert):
                     ui.label("Reports").style(
                         f"color: {TEXT_PRIMARY}; font-size: 26px; font-weight: 600;"
                     )
-                    ui.label(f"{len(all_alerts)} Alerts insgesamt").style(
+                    count_label = ui.label(f"{len(all_alerts)} Alerts insgesamt").style(
                         f"color: {TEXT_MUTED}; font-size: 14px;"
                     )
 
-                # Export-Box oben rechts
-                _render_export_box(all_alerts)
+                # Export-Box oben rechts (gibt time_select zurück)
+                time_select = _render_export_box(all_alerts)
 
-            # Tabelle mit Header und allen Alert-Zeilen
-            with ui.column().classes("w-full").style(
+            # Tabelle als refreshbare Spalte
+            table_container = ui.column().classes("w-full").style(
                 f"background: {BG_CARD}; border: 1px solid {BORDER}; "
                 f"border-radius: 10px; overflow: hidden;"
-            ):
-                _render_reports_table_header()
-                if not all_alerts:
-                    ui.label("Keine Alerts vorhanden.").style(
-                        f"color: {TEXT_MUTED}; font-style: italic; padding: 20px 16px;"
-                    )
-                # Jede zweite Zeile bekommt einen anderen Hintergrund (Streifen-Effekt)
-                for index, a in enumerate(all_alerts):
-                    _render_reports_table_row(a, is_alternate=(index % 2 == 1))
+            )
+
+            def refresh_table(range_key):
+                filtered = _filter_alerts_by_range(all_alerts, range_key)
+                count_label.set_text(f"{len(filtered)} Alerts insgesamt")
+                table_container.clear()
+                with table_container:
+                    _render_reports_table_header()
+                    if not filtered:
+                        ui.label("Keine Alerts vorhanden.").style(
+                            f"color: {TEXT_MUTED}; font-style: italic; padding: 20px 16px;"
+                        )
+                    for index, a in enumerate(filtered):
+                        _render_reports_table_row(a, is_alternate=(index % 2 == 1))
+
+            time_select.on_value_change(lambda e: refresh_table(e.value))
+            refresh_table("All")
 
 
 def _render_export_box(all_alerts):
-    """Box oben rechts: Zeitraum wählen und als JSON oder PDF exportieren."""
+    """Box oben rechts: Zeitraum wählen und als JSON oder PDF exportieren.
+
+    Returns the time_select widget so the caller can bind a table refresh.
+    """
     with ui.column().style(
         f"background: {BG_CARD}; border: 1px solid {BORDER}; border-radius: 10px; "
         f"padding: 16px 20px; gap: 12px; min-width: 260px;"
@@ -110,6 +122,8 @@ def _render_export_box(all_alerts):
             ui.button("PDF", on_click=export_pdf).props("no-caps").style(
                 f"background: #3a3a3a; color: {TEXT_PRIMARY}; font-size: 13px;"
             )
+
+    return time_select
 
 
 def _filter_alerts_by_range(alerts, range_key):
