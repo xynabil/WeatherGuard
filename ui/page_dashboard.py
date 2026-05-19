@@ -31,7 +31,11 @@ def _render_dashboard_page(location, alert):
 
 
 def _render_dashboard_main(location, alert, user_id):
-    """Der Haupt-Bereich des Dashboards (alles ausser Sidebar)."""
+    """Der Haupt-Bereich des Dashboards (alles ausser Sidebar).
+
+    Standorte werden nebeneinander angezeigt; unter jeder Standort-Karte
+    stehen die zugehörigen Warnungen.
+    """
     # Dict für Callbacks: innere Funktionen können damit die UI neu laden
     refresh_callbacks = {}
 
@@ -60,43 +64,55 @@ def _render_dashboard_main(location, alert, user_id):
                 on_click=lambda: _open_add_location_dialog(location, refresh_callbacks, user_id),
             ).style(f"background: {ACCENT_BLUE}; color: white;")
 
-        # Zwei Spalten: Standorte links, aktuelle Warnungen rechts
-        with ui.row().classes("w-full").style("gap: 24px; align-items: flex-start;"):
-            locations_column = ui.column().style("width: 360px; flex-shrink: 0; gap: 12px;")
-            alerts_column    = ui.column().classes("grow").style("gap: 12px;")
+        # Container für die Standort-Spalten (eine Spalte pro Standort, nebeneinander)
+        columns_container = ui.row().classes("w-full").style(
+            "gap: 16px; flex-wrap: wrap; align-items: stretch;"
+        )
 
-        def refresh_locations():
-            # Standort-Spalte leeren und neu aufbauen
-            locations_column.clear()
+        def refresh_dashboard():
+            """Baut das Dashboard neu auf: pro Standort eine Spalte (Karte oben, Alerts unten)."""
+            columns_container.clear()
+
+            # Alle Standorte und Alerts laden
             user_locations = location.list_locations(user_id=user_id)
-            with locations_column:
+            user_alerts = alert.list_current_alerts(user_id=user_id)
+
+            # Alerts pro Standort-ID gruppieren
+            alerts_by_location = {}
+            for a in user_alerts:
+                if a.location_id not in alerts_by_location:
+                    alerts_by_location[a.location_id] = []
+                alerts_by_location[a.location_id].append(a)
+
+            with columns_container:
+                # Leerer Zustand: noch keine Standorte
                 if not user_locations:
                     ui.label("Noch keine Standorte — klicke auf «Neuer Standort».").style(
                         f"color: {TEXT_MUTED}; font-style: italic;"
                     )
+                    return
+
+                # Pro Standort eine vertikale Spalte
                 for loc in user_locations:
-                    _render_location_card(loc, location, alert, refresh_callbacks)
+                    with ui.column().style("width: 300px; flex-shrink: 0; gap: 10px; align-items: stretch;"):
+                        # Oben: Standort-Karte
+                        _render_location_card(loc, location, alert, refresh_callbacks)
 
-        def refresh_alerts():
-            # Alert-Spalte leeren und neu aufbauen
-            alerts_column.clear()
-            with alerts_column:
-                ui.label("Aktuelle Warnungen").style(
-                    f"color: {TEXT_PRIMARY}; font-size: 18px; font-weight: 600;"
-                )
-                user_alerts = alert.list_current_alerts(user_id=user_id)
-                if not user_alerts:
-                    ui.label("Keine Warnungen — alles im grünen Bereich! ✓").style(
-                        "color: #4ec9a8; font-style: italic; font-size: 14px;"
-                    )
-                for a in user_alerts:
-                    _render_alert_card(a)
+                        # Unten: Alerts dieses Standorts
+                        location_alerts = alerts_by_location.get(loc.id, [])
+                        if location_alerts:
+                            for a in location_alerts:
+                                _render_alert_card(a)
+                        else:
+                            ui.label("Keine Warnungen ✓").style(
+                                "color: #4ec9a8; font-style: italic; font-size: 13px; "
+                                "padding: 4px 4px;"
+                            )
 
-        # Callbacks registrieren, damit auch DashboardRefresh sie aufrufen kann
-        refresh_callbacks["refresh_locations"] = refresh_locations
-        refresh_callbacks["refresh_alerts"]    = refresh_alerts
-        refresh_locations()
-        refresh_alerts()
+        # Beide alten Callbacks lösen jetzt einen kompletten Neuaufbau aus
+        refresh_callbacks["refresh_locations"] = refresh_dashboard
+        refresh_callbacks["refresh_alerts"]    = refresh_dashboard
+        refresh_dashboard()
 
         # Auto-Refresh starten (aktualisiert alle 3 Minuten automatisch)
         dashboard_refresh = DashboardRefresh(
@@ -379,7 +395,7 @@ def _render_location_card(location, location_controller, alert_controller, refre
             _render_location_card_buttons(location, location_controller, alert_controller, refresh_callbacks)
 
         # Wetter-Zeile: wird asynchron nachgeladen (erst Spinner, dann Werte)
-        weather_row = ui.row().style("gap: 16px; flex-wrap: wrap; min-height: 32px;")
+        weather_row = ui.row().style("gap: 6px; flex-wrap: wrap; min-height: 32px;")
 
         def load_weather():
             _fill_weather_row(weather_row, location, alert_controller)
@@ -418,7 +434,7 @@ def _render_location_card_buttons(location, location_controller, alert_controlle
         ui.button(icon="refresh", on_click=run_analysis).props("flat size=sm").tooltip(
             "Wetter prüfen & Alerts aktualisieren"
         )
-        
+
         ui.button(
             icon="tune",
             on_click=lambda: _open_edit_thresholds_dialog(location, location_controller, refresh_callbacks),
@@ -473,7 +489,7 @@ def _render_weather_stat(icon, value, label):
     """Ein kleines Wetter-Element bestehend aus Icon, Wert und Einheits-Label."""
     with ui.column().style("align-items: center; gap: 1px;"):
         ui.label(f"{icon} {value}").style(
-            f"color: {TEXT_PRIMARY}; font-size: 13px; font-weight: 600;"
+            f"color: {TEXT_PRIMARY}; font-size: 11px; font-weight: 600;"
         )
         ui.label(label).style(f"color: {TEXT_MUTED}; font-size: 10px;")
 
