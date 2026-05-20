@@ -6,6 +6,20 @@ Built with Python, NiceGUI, SQLite (via SQLModel ORM), the Open-Meteo weather AP
 
 ---
 
+## Screenshots
+
+### Dashboard (current)
+
+![Dashboard](docs/Dashboard_WeatherGuard.png)
+
+### Early Mockup
+
+The initial design sketch we made before implementation. The final UI differs in places, but it set the direction.
+
+![Dashboard Mockup](docs/Mockup_WeatherGuard.png)
+
+---
+
 ## The Problem
 
 Outdoor teams — crane operators, concrete crews, event builders — lose time and money when weather hits unexpectedly. WeatherGuard monitors forecasts against company-defined thresholds and alerts before conditions become critical, enabling active risk management instead of reactive damage control.
@@ -181,10 +195,12 @@ NiceGUI Frontend (Browser)
         ├── Leaflet.js Map  →  user picks coordinates by clicking or searching
         │
         ▼
-Pages (ui/pages.py) — five routes: /, /app, /dashboard, /reports, /settings
+Pages (ui/pages.py + ui/page_*.py) — five routes: /, /dashboard, /app, /reports, /settings
         │
         ▼
 Controllers (ui/controllers.py) — Auth, Location, Alert, History
+        │
+        ├── DashboardRefresh (ui/dashboard_refresh.py) → re-runs analysis every 3 minutes
         │
         ├── Services (services/) → WeatherClient, RiskAnalyzer → Open-Meteo API
         │
@@ -236,8 +252,14 @@ WeatherGuard/
 │
 └── ui/
     ├── controllers.py         # AuthController, LocationController, AlertController, HistoryController
+    ├── components.py          # Shared UI helpers: sidebar, KPI row, chart widgets, colors
     ├── dashboard_refresh.py   # DashboardRefresh — auto-refresh every 3 minutes
-    └── pages.py               # Pages class — registers all NiceGUI routes
+    ├── pages.py               # Pages class — registers all NiceGUI routes
+    ├── page_login.py          # /          Login & Registrierung
+    ├── page_dashboard.py      # /dashboard Live dashboard with active alerts
+    ├── page_history.py        # /app       Alert history + KPIs + charts
+    ├── page_reports.py        # /reports   Reports & export
+    └── page_settings.py       # /settings  Account settings
 ```
 
 ---
@@ -250,7 +272,8 @@ WeatherGuard/
 | **Encapsulation** | `threshold.is_exceeded(value)` and `user.check_password(pw)` hide the comparison logic inside the class |
 | **Relationships / Associations** | A `Location` has many `WeatherThreshold`s, each `Alert` belongs to one `Location` |
 | **Separation of concerns** | `domain/` (data), `data_access/` (DB), `services/` (logic), `ui/` (presentation) are in separate folders |
-| **DRY (don't repeat yourself)** | The sidebar, KPI row, and chart helpers are defined once in `pages.py` and reused across all pages |
+| **DRY (don't repeat yourself)** | The sidebar, KPI row, and chart helpers are defined once in `ui/components.py` and reused across all page modules |
+| **Inheritance** | All four domain models (`User`, `Location`, `WeatherThreshold`, `Alert`) inherit from `SQLModel`, gaining ORM and validation behaviour automatically |
 
 ---
 
