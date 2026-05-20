@@ -1,4 +1,4 @@
-"""Gemeinsame Komponenten und Konstanten.
+4"""Gemeinsame Komponenten und Konstanten.
 
 Alle Farben, Styles und Hilfs-Funktionen, die auf mehreren Seiten
 verwendet werden (Sidebar, Navigation, User-Chip usw.).
