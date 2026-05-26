@@ -109,6 +109,7 @@ classDiagram
     +list_locations(user_id) list~Location~
     +add_location(...) Location
     +delete_location(location_id)
+    +update_thresholds(location_id, values)
   }
 
   class AlertController {

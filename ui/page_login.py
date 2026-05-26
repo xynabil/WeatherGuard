@@ -10,9 +10,9 @@ from ui.components import (
 
 def _render_login_page(auth):
     """Login- und Registrierungs-Seite (URL '/')."""
-    # Bereits eingeloggte User direkt zur App-Seite weiterleiten
+    # Bereits eingeloggte User direkt zum Dashboard weiterleiten
     if _is_logged_in():
-        ui.navigate.to("/app")
+        ui.navigate.to("/dashboard")
         return
 
     _setup_dark_mode()
@@ -57,7 +57,7 @@ def _render_login_form(auth):
         app.storage.user["user_id"]   = user.id
         app.storage.user["username"]  = user.username
         app.storage.user["company"]   = user.company
-        ui.navigate.to("/app")
+        ui.navigate.to("/dashboard")
 
     ui.button("Login", on_click=try_login, icon="login").classes("w-full").style(
         f"background: {ACCENT_BLUE}; color: white; margin-top: 4px;"

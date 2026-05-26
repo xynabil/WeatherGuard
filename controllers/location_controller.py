@@ -67,3 +67,10 @@ class LocationController:
     def delete_location(self, location_id):
         """Löscht einen Standort (samt Grenzwerten und Alerts)."""
         self.location_dao.delete(location_id)
+
+    def update_thresholds(self, location_id, threshold_values):
+        """Aktualisiert die Werte mehrerer Grenzwerte eines Standorts.
+
+        threshold_values ist ein Dict: {threshold_id: neuer_wert, ...}
+        """
+        self.location_dao.update_thresholds(location_id, threshold_values)
