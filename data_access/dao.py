@@ -23,14 +23,14 @@ from domain.models import User, Location, Alert
 class UserDAO:
     """Verwaltet Benutzer-Konten in der Datenbank."""
 
-    def __init__(self, engine):
+    def __init__(self, engine): #wird ausgefürht, wenn eine neues Objekt der Klasse UserDAO erstellt wird.
         self.engine = engine
 
     def get_by_username(self, username):
         """Sucht einen User anhand des Benutzernamens. None falls nicht gefunden."""
         with Session(self.engine) as session:
-            statement = select(User).where(User.username == username)
-            return session.exec(statement).first()
+            statement = select(User).where(User.username == username) #SQL Modell abfrage
+            return session.exec(statement).first() #führt die Abfrage aus und gibt das erste Ergebnis zurück (oder None, wenn nichts gefunden)
 
     def add(self, user):
         """Speichert einen neuen User in der Datenbank."""
@@ -49,7 +49,7 @@ class UserDAO:
                 return False
             user.password = new_password
             session.add(user)
-            session.commit()
+            session.commit() #dauerhaft in der Datenbank speichern
             return True
 
 
@@ -68,7 +68,7 @@ class LocationDAO:
         with Session(self.engine) as session:
             statement = select(Location)
             if user_id is not None:
-                statement = statement.where(Location.user_id == user_id)
+                statement = statement.where(Location.user_id == user_id) #nur Standorte dieses Users
             locations = list(session.exec(statement).all())
             # Wichtig: thresholds laden, solange Session noch offen ist
             for loc in locations:
@@ -125,13 +125,13 @@ class AlertDAO:
 
     def list_current(self, user_id=None):
         """Gibt nur die heutigen Alerts zurück (für das Live-Dashboard)."""
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) #berechnet den Beginn des aktuellen Tages (heute um 00:00 Uhr)
         with Session(self.engine) as session:
-            if user_id is not None:
+            if user_id is not None: #Filtern auf Standorte des Users, falls user_id angegeben
                 loc_statement = select(Location).where(Location.user_id == user_id)
                 location_ids = [loc.id for loc in session.exec(loc_statement).all()]
                 if not location_ids:
-                    return []
+                    return [] #falls nicht vorhanden, leere Liste zurückgeben
                 statement = (
                     select(Alert)
                     .where(Alert.location_id.in_(location_ids))
