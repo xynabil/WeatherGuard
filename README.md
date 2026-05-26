@@ -236,7 +236,7 @@ WeatherGuard/
 ├── application.py             # WeatherGuardApplication — wires everything together
 ├── config.py                  # Settings (DATABASE_URL)
 ├── requirements.txt
-├── weatherguard.db            # SQLite database (auto-seeded on first run)
+├── weatherguard.db            # SQLite database — auto-created & seeded on first run (gitignored)
 │
 ├── domain/
 │   └── models.py              # SQLModel tables: User, Location, WeatherThreshold, Alert
@@ -287,7 +287,7 @@ python main.py
 # Open http://localhost:8080
 ```
 
-The database (`weatherguard.db`) is included in the repo and already contains demo data — no setup needed.
+On first run, `weatherguard.db` is auto-created in the project root and seeded with demo data (admin user, 3 sites, 24 historical alerts) by `WeatherSeeder`. The database file is not tracked in git, so every fresh clone starts with consistent demo data.
 
 ---
 

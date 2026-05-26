@@ -1,6 +1,19 @@
-.env
+# Python
 __pycache__/
 *.pyc
 .venv/
-# DB-Datei wird committed, damit Demo-Daten direkt verfügbar sind
-# config.py muss lokal vorhanden sein (DATABASE_URL = "sqlite:///weatherguard.db")
+
+# Environment / secrets
+.env
+
+# Local SQLite database — auto-created and seeded on first run
+weatherguard.db
+
+# NiceGUI runtime storage (per-browser session files)
+.nicegui/
+
+# Claude Code working directory
+.claude/
+
+# macOS
+.DS_Store
