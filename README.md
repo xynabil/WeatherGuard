@@ -198,7 +198,7 @@ NiceGUI Frontend (Browser)
 Pages (ui/pages.py + ui/page_*.py) — five routes: /, /dashboard, /app, /reports, /settings
         │
         ▼
-Controllers (ui/controllers.py) — Auth, Location, Alert, History
+Controllers (controllers/) — Auth, Location, Alert, History
         │
         ├── DashboardRefresh (ui/dashboard_refresh.py) → re-runs analysis every 3 minutes
         │
@@ -250,8 +250,13 @@ WeatherGuard/
 │   ├── weather_client.py      # WeatherClient — Open-Meteo API wrapper
 │   └── risk_analyzer.py       # RiskAnalyzer — threshold checks & alert creation
 │
+├── controllers/
+│   ├── auth_controller.py     # AuthController — login, registration, password
+│   ├── location_controller.py # LocationController — sites CRUD + BRANCH_PRESETS
+│   ├── alert_controller.py    # AlertController — runs analysis, reads alerts
+│   └── history_controller.py  # HistoryController — KPIs & chart data
+│
 └── ui/
-    ├── controllers.py         # AuthController, LocationController, AlertController, HistoryController
     ├── components.py          # Shared UI helpers: sidebar, KPI row, chart widgets, colors
     ├── dashboard_refresh.py   # DashboardRefresh — auto-refresh every 3 minutes
     ├── pages.py               # Pages class — registers all NiceGUI routes

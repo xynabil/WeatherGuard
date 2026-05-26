@@ -18,7 +18,7 @@ from data_access.db import Database
 from data_access.dao import UserDAO, LocationDAO, AlertDAO
 from data_access.seed import WeatherSeeder
 from services.weather_client import WeatherClient
-from ui.controllers import (
+from controllers import (
     AuthController,
     LocationController,
     AlertController,

@@ -12,7 +12,7 @@ from ui.components import (
     SEVERITY_COLORS, SEVERITY_BG,
     _is_logged_in, _setup_dark_mode, _render_sidebar,
 )
-from ui.controllers import BRANCH_PRESETS
+from controllers import BRANCH_PRESETS
 from ui.dashboard_refresh import DashboardRefresh
 
 

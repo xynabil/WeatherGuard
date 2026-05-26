@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from data_access.dao import LocationDAO, AlertDAO
-from ui.controllers import AlertController, HistoryController
+from controllers import AlertController, HistoryController
 
 
 def make_forecast(temp):
