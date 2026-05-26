@@ -118,13 +118,16 @@ classDiagram
     -RiskAnalyzer risk_analyzer
     +run_analysis(location_id) list~Alert~
     +list_alerts(limit, user_id) list~Alert~
+    +list_current_alerts(user_id) list~Alert~
+    +get_current_weather(lat, lon) dict
   }
 
   class HistoryController {
     -AlertDAO alert_dao
-    +get_kpis(user_id) dict
-    +get_alerts_per_day(user_id) list
-    +get_alerts_by_type(user_id) list
+    +get_kpis(user_id, since) dict
+    +get_alerts_per_day(user_id, since) list
+    +get_alerts_by_type(user_id, since) list
+    +get_recent_alerts(filter_type, user_id, since) list~Alert~
   }
 
   User "1" --> "0..*" Location : owns
@@ -234,7 +237,7 @@ WeatherGuard/
 ├── main.py                    # Entrypoint — python main.py
 ├── __main__.py                # Alternative entrypoint — python -m weatherguard
 ├── application.py             # WeatherGuardApplication — wires everything together
-├── config.py                  # Settings (DATABASE_URL)
+├── config.py                  # Settings (DATABASE_URL, STORAGE_SECRET)
 ├── requirements.txt
 ├── weatherguard.db            # SQLite database — auto-created & seeded on first run (gitignored)
 │
@@ -276,7 +279,7 @@ WeatherGuard/
 | **Classes & Objects** | `User`, `Location`, `WeatherThreshold`, `Alert`, `WeatherClient`, `RiskAnalyzer`, all DAOs and Controllers |
 | **Encapsulation** | `threshold.is_exceeded(value)` and `user.check_password(pw)` hide the comparison logic inside the class |
 | **Relationships / Associations** | A `Location` has many `WeatherThreshold`s, each `Alert` belongs to one `Location` |
-| **Separation of concerns** | `domain/` (data), `data_access/` (DB), `services/` (logic), `ui/` (presentation) are in separate folders |
+| **Separation of concerns** | `domain/` (data), `data_access/` (DB), `services/` (external APIs & logic), `controllers/` (application logic), `ui/` (presentation) live in separate folders |
 | **DRY (don't repeat yourself)** | The sidebar, KPI row, and chart helpers are defined once in `ui/components.py` and reused across all page modules |
 | **Inheritance** | All four domain models (`User`, `Location`, `WeatherThreshold`, `Alert`) inherit from `SQLModel`, gaining ORM and validation behaviour automatically |
 
@@ -314,4 +317,4 @@ The seeded database includes:
 | Open-Air Bühne Olten | Event | Sturm > 40 km/h, Regen > 5 mm, Frost < 0°C |
 | Depot Basel Süd | Lieferdienst | Schneefall > 5 cm, Orkan > 70 km/h, Extremkälte < -5°C |
 
-10 historical alerts are spread across the last 7 days so charts and history are visible immediately after cloning.
+24 historical alerts are spread across the last 4 weeks so charts and history are populated immediately after cloning.
