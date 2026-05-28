@@ -61,7 +61,7 @@ class LocationController:
                 severity=preset["severity"],
             ))
 
-        # 3. Speichern
+        # 3.  DAO speichern
         return self.location_dao.add(new_location)
 
     def delete_location(self, location_id):
