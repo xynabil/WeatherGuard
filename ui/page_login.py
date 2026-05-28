@@ -54,7 +54,7 @@ def _render_login_form(auth):
             return
         # Login erfolgreich: Daten in die Session schreiben
         app.storage.user["logged_in"] = True
-        app.storage.user["user_id"]   = user.id
+        app.storage.user["user_id"]   = user.id #app.storage.user speichert die Session-Daten des eingeloggten Users, damit sie in anderen Seiten abgerufen werden können (z.B. um die Standorte dieses Users zu laden)
         app.storage.user["username"]  = user.username
         app.storage.user["company"]   = user.company
         ui.navigate.to("/app")
