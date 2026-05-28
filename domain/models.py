@@ -10,10 +10,19 @@ SQLModel ist eine Bibliothek, die Python-Klassen automatisch in DB-Tabellen umwa
 Jede Klasse hier entspricht einer Tabelle.
 """
 
+import operator
 from datetime import datetime
 from typing import List, Optional
 
 from sqlmodel import SQLModel, Field, Relationship
+
+
+_COMPARE_OPS = {
+    "<":  operator.lt,
+    ">":  operator.gt,
+    "<=": operator.le,
+    ">=": operator.ge,
+}
 
 
 class User(SQLModel, table=True):
@@ -81,15 +90,8 @@ class WeatherThreshold(SQLModel, table=True):
 
         Beispiel: Grenzwert "TTT_C < 5", actual_value = 2.0 → True (Frost!)
         """
-        if self.operator == "<":
-            return actual_value < self.value
-        if self.operator == ">":
-            return actual_value > self.value
-        if self.operator == "<=":
-            return actual_value <= self.value
-        if self.operator == ">=":
-            return actual_value >= self.value
-        return False
+        compare = _COMPARE_OPS.get(self.operator)
+        return compare(actual_value, self.value) if compare else False
 
 
 class Alert(SQLModel, table=True):
