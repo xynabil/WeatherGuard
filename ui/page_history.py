@@ -209,7 +209,7 @@ def _render_recent_alerts_section(history, user_id, on_time_change=None):
 
             with alert_list_column:
                 filtered_alerts = history.get_recent_alerts(
-                    filter_state["active"],
+                    filter_state["active"], #Aktiver Typ-Filter (All, Frost, Wind, Rain, Snow)
                     user_id=user_id,
                     since=since,
                 )
@@ -237,13 +237,13 @@ def _render_recent_alerts_section(history, user_id, on_time_change=None):
         def on_time_range_change(e):
             """Wird aufgerufen wenn ein anderer Zeitraum gewählt wird."""
             filter_state["time_range"] = e.value
-            delta = TIME_RANGES[e.value]
+            delta = TIME_RANGES[e.value] #e.value ist der neue Zeitraum.
             since = datetime.now() - delta if delta else None
             refresh_alert_list()
             if on_time_change:
                 on_time_change(since)
 
-        time_select.on_value_change(on_time_range_change)
+        time_select.on_value_change(on_time_range_change) #nicegui verbindet die Funktion mit dem Dropdown, damit sie aufgerufen wird wenn der Nutzer einen anderen Zeitraum auswählt
 
         def set_filter(new_filter):
             """Wird aufgerufen wenn ein Typ-Chip geklickt wird."""
