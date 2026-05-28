@@ -243,7 +243,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
 
                 # Grenzwert-Liste für den Controller zusammenbauen
                 threshold_list = [
-                    {"preset": row["preset"], "value": row["value_input"].value}
+                    {"preset": row["preset"], "value": row["value_input"].value} #Gehe durch jede Zeile in threshold_inputs und erstelle daraus ein Dictionary mit preset und value.
                     for row in threshold_inputs
                 ]
                 new_location = location_controller.add_location(
@@ -257,7 +257,7 @@ async def _open_add_location_dialog(location_controller, refresh_callbacks, user
                 )
                 dialog.close()
                 ui.notify(
-                    f"✓ Standort '{new_location.name}' wurde hinzugefügt!",
+                    f"✓ Standort '{new_location.name}' wurde hinzugefügt!", #Erfolgsmeldung mit Namen des neuen Standorts
                     type="positive", position="top",
                 )
                 refresh_callbacks["refresh_locations"]()
@@ -420,9 +420,9 @@ def _render_location_card_buttons(location, location_controller, alert_controlle
 
         def run_analysis():
             # Wetter-Analyse für diesen Standort starten
-            ui.notify(f"Analyse läuft für {location.name}…", type="info")
+            ui.notify(f"Analyse läuft für {location.name}…", type="info") 
             try:
-                new_alerts = alert_controller.run_analysis(location.id)
+                new_alerts = alert_controller.run_analysis(location.id) #Löst die Analyse für den Standort aus und gibt die neuen Alerts zurück, die dabei entstanden sind.
                 if new_alerts:
                     ui.notify(f"⚠ {len(new_alerts)} Warnung(en) für {location.name}", type="warning")
                 else:
