@@ -110,7 +110,7 @@ class LocationDAO:
                 return
             for threshold in location.thresholds:
                 if threshold.id in threshold_values:
-                    threshold.value = threshold_values[threshold.id]
+                    threshold.value = threshold_values[threshold.id] #aktualisiert den Wert des Grenzwerts mit der neuen Zahl aus threshold_values
                     session.add(threshold)
             session.commit()
 # ---------------------------------------------------------------------------
