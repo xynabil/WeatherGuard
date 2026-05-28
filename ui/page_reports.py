@@ -31,8 +31,8 @@ def _render_reports_page(alert):
         return
 
     _setup_dark_mode()
-    user_id    = app.storage.user.get("user_id")
-    all_alerts = alert.list_alerts(user_id=user_id)
+    user_id    = app.storage.user.get("user_id") 
+    all_alerts = alert.list_alerts(user_id=user_id) # Alle Alerts des eingeloggten Users abrufen
 
     with ui.row().classes("w-full h-screen no-wrap").style("margin: 0; gap: 0;"):
         _render_sidebar("Reports")
@@ -64,8 +64,8 @@ def _render_reports_page(alert):
             )
 
             def refresh_table(range_key):
-                filtered = _filter_alerts_by_range(all_alerts, range_key)
-                count_label.set_text(f"{len(filtered)} Alerts insgesamt")
+                filtered = _filter_alerts_by_range(all_alerts, range_key) 
+                count_label.set_text(f"{len(filtered)} Alerts insgesamt") # Anzahl aktualisieren
                 table_container.clear()
                 with table_container:
                     _render_reports_table_header()
@@ -77,7 +77,7 @@ def _render_reports_page(alert):
                         _render_reports_table_row(a, is_alternate=(index % 2 == 1))
 
             time_select.on_value_change(lambda e: refresh_table(e.value))
-            refresh_table("All")
+            refresh_table("All") 
 
 
 def _render_export_box(all_alerts):
@@ -102,7 +102,7 @@ def _render_export_box(all_alerts):
 
         with ui.row().classes("items-center").style("gap: 8px;"):
 
-            async def export_json():
+            async def export_json(): 
                 # Alerts filtern, in Dicts umwandeln und als .json herunterladen
                 alerts  = _filter_alerts_by_range(all_alerts, time_select.value)
                 data    = _alerts_to_dicts(alerts)
@@ -133,7 +133,7 @@ def _filter_alerts_by_range(alerts, range_key):
         # "All" → keine Filterung, alle Alerts zurückgeben
         return alerts
     since = datetime.now() - delta
-    return [a for a in alerts if a.created_at >= since]
+    return [a for a in alerts if a.created_at >= since] # Nur Alerts, die neuer sind als "since"
 
 
 def _alerts_to_dicts(alerts):
