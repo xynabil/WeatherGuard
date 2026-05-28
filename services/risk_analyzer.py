@@ -76,14 +76,14 @@ class RiskAnalyzer:
         # Jeden Grenzwert prüfen
         for threshold in thresholds:
             actual_value = hour_data.get(threshold.parameter)
-            if actual_value is None:
-                continue  # Wert nicht vorhanden → überspringen
+            if actual_value is None or not threshold.is_exceeded(actual_value):
+                continue  # Wert fehlt oder Grenzwert nicht überschritten → ok
 
-            if not threshold.is_exceeded(actual_value):
-                continue  # Grenzwert nicht überschritten → ok
+            # Bei ">" zählt der höchste Wert als "schlimmster", bei "<" der tiefste
+            worse = max if threshold.operator in (">", ">=") else min
 
-            # Grenzwert wurde überschritten!
-            if threshold.id not in violations:
+            existing = violations.get(threshold.id)
+            if existing is None:
                 # Erste Überschreitung dieses Grenzwerts
                 violations[threshold.id] = {
                     "first_time": forecast_time,
@@ -91,13 +91,5 @@ class RiskAnalyzer:
                     "threshold": threshold,
                 }
             else:
-                # Weitere Überschreitung: ist der neue Wert "schlimmer"?
-                existing = violations[threshold.id]
-                if threshold.operator in (">", ">="):
-                    # Bei "grösser als": je höher, desto schlimmer
-                    if actual_value > existing["worst_value"]:
-                        existing["worst_value"] = actual_value
-                else:
-                    # Bei "kleiner als": je tiefer, desto schlimmer
-                    if actual_value < existing["worst_value"]:
-                        existing["worst_value"] = actual_value
+                # Weitere Überschreitung: schlimmsten Wert behalten
+                existing["worst_value"] = worse(actual_value, existing["worst_value"])
