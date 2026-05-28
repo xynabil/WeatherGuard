@@ -43,6 +43,19 @@ Outdoor teams — crane operators, concrete crews, event builders — lose time 
 
 ---
 
+## Use Cases
+
+| # | Use Case | Actor | Main flow |
+|---|----------|-------|-----------|
+| UC1 | **Login / Registration** | Operations Manager | Opens `/` → enters username & password → system checks via `AuthController.verify_login()` → on success redirects to `/dashboard`, otherwise shows an error. New users register through the second tab. |
+| UC2 | **Add a site** | Operations Manager | On the dashboard, opens "Add site" → picks a branch (construction / event / delivery) → system suggests matching thresholds → user clicks on the map or searches an address → saves. `LocationController.add_location()` persists the site with its thresholds. |
+| UC3 | **Analyze weather risk** | System (every 3 min, automatic) + Operations Manager (manual) | `AlertController.run_analysis(location_id)` fetches the 3-day forecast via `WeatherClient`, lets the `RiskAnalyzer` check it against every threshold of the site, and stores the resulting alerts. Today's alerts get replaced; historical ones remain untouched. |
+| UC4 | **Update thresholds** | Operations Manager | On a site card, clicks "Edit thresholds" → a dialog appears with the current values → user changes numbers → "Save" → `LocationController.update_thresholds()` persists the new values. The next analysis run picks them up immediately. |
+| UC5 | **View alert history** | Operations Manager | Opens `/app` → `HistoryController` loads all alerts of the user, calculates KPIs (total, critical, warning, today) and groups them by day and type for charts. The user can filter by time range and category. |
+| UC6 | **Export a report** | Operations Manager | Opens `/reports` → picks a time range → clicks "Export as PDF" → the system generates a PDF via `fpdf2` containing the filtered alerts and triggers the download. |
+
+---
+
 ## Class Diagram
 
 ```mermaid
@@ -221,16 +234,6 @@ SQLite Database (via SQLModel ORM)
 
 ---
 
-## APIs Used
-
-| API | Purpose | Cost | Key required |
-|-----|---------|------|--------------|
-| [Open-Meteo](https://open-meteo.com) | 3-day hourly weather forecast (temperature, wind, gusts, rain, snow, humidity) | Free | No |
-| [Nominatim / OpenStreetMap](https://nominatim.openstreetmap.org) | Geocoding — converts place names to coordinates | Free | No |
-| [Leaflet.js](https://leafletjs.com) | Interactive map with clickable marker for location picking | Free | No |
-
----
-
 ## Project Structure
 
 ```
@@ -283,6 +286,35 @@ WeatherGuard/
 | **Separation of concerns** | `domain/` (data), `data_access/` (DB), `services/` (external APIs & logic), `controllers/` (application logic), `ui/` (presentation) live in separate folders |
 | **DRY (don't repeat yourself)** | The sidebar, KPI row, and chart helpers are defined once in `ui/components.py` and reused across all page modules |
 | **Inheritance** | All four domain models (`User`, `Location`, `WeatherThreshold`, `Alert`) inherit from `SQLModel`, gaining ORM and validation behaviour automatically |
+
+---
+
+## Libraries & Dependencies
+
+### Python packages (runtime, from `requirements.txt`)
+
+| Library | Version | Purpose |
+|---------|---------|---------|
+| [NiceGUI](https://nicegui.io) | ≥ 1.4.0 | Web-frontend framework — defines UI components as Python objects, renders them in the browser via Vue.js/Quasar |
+| [SQLModel](https://sqlmodel.tiangolo.com) | ≥ 0.0.14 | ORM built on SQLAlchemy + Pydantic — defines DB tables as Python classes, avoids raw SQL |
+| [requests](https://requests.readthedocs.io) | ≥ 2.31.0 | HTTP client — used by `WeatherClient` for the Open-Meteo API and for Nominatim geocoding |
+| [fpdf2](https://py-pdf.github.io/fpdf2) | ≥ 2.7.0 | PDF generation for the alert-report export |
+
+### Python standard library
+
+`datetime`, `collections`, `unittest.mock` (tests), `asyncio` (NiceGUI background tasks)
+
+### Dev-only
+
+[pytest](https://docs.pytest.org) — runs the 12 tests in `tests/`. Installable via `pip install pytest` (not in `requirements.txt`, since it is not needed at runtime).
+
+### External APIs (no authentication required)
+
+| API | Purpose | Cost | Key |
+|-----|---------|------|-----|
+| [Open-Meteo](https://open-meteo.com) | 3-day hourly forecast (temperature, wind, gusts, rain, snow, humidity) | Free | No |
+| [Nominatim / OpenStreetMap](https://nominatim.openstreetmap.org) | Geocoding — turns place names into coordinates | Free | No |
+| [Leaflet.js](https://leafletjs.com) | Interactive map (via NiceGUI's `ui.leaflet` component) | Free | No |
 
 ---
 
