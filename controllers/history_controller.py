@@ -128,4 +128,4 @@ class HistoryController:
         if filter_type != "All":
             alerts = [a for a in alerts if PARAM_TO_TYPE.get(a.parameter) == filter_type]
 
-        return alerts
+        return alerts #an UI zurückgeben.

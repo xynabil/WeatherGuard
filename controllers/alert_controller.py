@@ -23,7 +23,7 @@ class AlertController:
         - Speichert die neuen Alerts in der DB
         - Gibt die neuen Alerts zurück
         """
-        location = self.location_dao.get_by_id(location_id)
+        location = self.location_dao.get_by_id(location_id) #Holt den Standort mit der angegebenen ID aus der Datenbank.
         if location is None:
             raise ValueError(f"Standort mit ID {location_id} nicht gefunden.")
 

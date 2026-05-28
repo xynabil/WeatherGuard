@@ -63,7 +63,7 @@ def _render_change_password_card(auth, username):
         error_label = ui.label("").style("color: #f47174; font-size: 13px; min-height: 18px;")
 
         def save_password():
-            error_label.set_text("")
+            error_label.set_text("") # Fehlermeldung zurücksetzen
             # Beide neuen Passwörter müssen übereinstimmen
             if new_pw.value != confirm_pw.value:
                 error_label.set_text("Neue Passwörter stimmen nicht überein.")

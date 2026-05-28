@@ -23,7 +23,7 @@ from domain.models import User, Location, Alert
 class UserDAO:
     """Verwaltet Benutzer-Konten in der Datenbank."""
 
-    def __init__(self, engine): #wird ausgefürht, wenn eine neues Objekt der Klasse UserDAO erstellt wird.
+    def __init__(self, engine): 
         self.engine = engine
 
     def get_by_username(self, username):
@@ -77,7 +77,7 @@ class LocationDAO:
 
     def get_by_id(self, location_id):
         """Sucht einen Standort anhand seiner ID."""
-        with Session(self.engine) as session:
+        with Session(self.engine) as session: #öffnet eine neue Session mit der Datenbank, um die Abfrage durchzuführen
             location = session.get(Location, location_id)
             if location is not None:
                 _ = location.thresholds  # thresholds laden
@@ -110,7 +110,7 @@ class LocationDAO:
                 return
             for threshold in location.thresholds:
                 if threshold.id in threshold_values:
-                    threshold.value = threshold_values[threshold.id]
+                    threshold.value = threshold_values[threshold.id] #aktualisiert den Wert des Grenzwerts mit der neuen Zahl aus threshold_values
                     session.add(threshold)
             session.commit()
 # ---------------------------------------------------------------------------
