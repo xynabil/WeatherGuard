@@ -41,10 +41,10 @@ class RiskAnalyzer:
         violations = {}
 
         # Jede Stunde der Prognose durchgehen
-        for day in forecast.get("days", []):
-            for hour_data in day.get("hours", []):
-                self._check_hour(hour_data, location.thresholds, violations)
-
+        for day in forecast.get("days", []): 
+            for hour_data in day.get("hours", []): 
+                self._check_hour(hour_data, location.thresholds, violations) 
+                
         # 3. Aus den Verletzungen Alerts machen
         alerts = []
         for info in violations.values():
@@ -58,7 +58,7 @@ class RiskAnalyzer:
                 threshold_value=threshold.value,
                 forecast_time=info["first_time"],
             )
-            alerts.append(alert)
+            alerts.append(alert) #Erstellt für jede Verletzung ein Alert-Objekt mit den gesammelten Informationen und fügt es der Liste der Alerts hinzu.
 
         return alerts
 
